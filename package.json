@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.18.0",
+    "framer-motion": "^12.23.24",
     "next": "^15.0.0",
     "openai": "^6.6.0",
     "react": "^19.0.0",
