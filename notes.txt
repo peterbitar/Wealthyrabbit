@@ -1,0 +1,40 @@
+WealthyRabbit Project Notes
+===========================
+
+Created: October 23, 2025
+
+Project Overview:
+A stock portfolio tracking application built with Next.js, TypeScript, Prisma, and SQLite.
+
+Features:
+- Create custom lists (Watchlist/Invested)
+- Add and manage stock ticker symbols
+- Persistent storage with SQLite database
+- Modern UI with Tailwind CSS
+
+Tech Stack:
+- Frontend: Next.js 15, React 19, TypeScript
+- Database: SQLite (via Prisma ORM)
+- Styling: Tailwind CSS
+- Package Manager: pnpm
+
+Getting Started:
+1. pnpm install
+2. pnpm prisma:mig (if schema changes)
+3. pnpm dev
+
+Database:
+- Location: ./dev.db (SQLite file)
+- Tables: users, lists, holdings
+- Migrations: ./prisma/migrations/
+
+Notes:
+- Data persists across server restarts
+- No external database setup required
+- Perfect for local development
+
+Next Steps:
+- Add authentication
+- Implement stock price fetching
+- Add portfolio analytics
+- Deploy to production
