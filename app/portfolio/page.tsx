@@ -1,75 +1,67 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import FilterChips from "@/components/FilterChips";
-
-// Dummy data
-const portfolioSummary = {
-  totalValue: 42850.00,
-  dayChange: +425.50,
-  dayChangePercent: +1.42,
-};
-
-const stocks = [
-  {
-    symbol: "AAPL",
-    name: "Apple Inc.",
-    shares: 25,
-    avgPrice: 150.50,
-    currentPrice: 175.25,
-    totalValue: 4381.25,
-    dayChange: +2.5,
-    sentiment: "positive",
-    vibe: "Steady & Reliable",
-    redditMentions: 1240,
-    redditBenchmark: 1100, // avg for AAPL
-    momentum: "Building",
-    friendsWatching: 8,
-  },
-  {
-    symbol: "TSLA",
-    name: "Tesla Inc.",
-    shares: 15,
-    avgPrice: 245.00,
-    currentPrice: 238.50,
-    totalValue: 3577.50,
-    dayChange: -1.8,
-    sentiment: "neutral",
-    vibe: "Choppy Waters",
-    redditMentions: 3450,
-    redditBenchmark: 4200, // avg for TSLA (below normal)
-    momentum: "Cooling",
-    friendsWatching: 12,
-  },
-  {
-    symbol: "NVDA",
-    name: "NVIDIA Corp.",
-    shares: 10,
-    avgPrice: 420.00,
-    currentPrice: 485.75,
-    totalValue: 4857.50,
-    dayChange: +3.2,
-    sentiment: "positive",
-    vibe: "On Fire 🔥",
-    redditMentions: 5680,
-    redditBenchmark: 2800, // avg for NVDA (way above!)
-    momentum: "Strong",
-    friendsWatching: 15,
-  },
-];
-
-const watchlist = [
-  { symbol: "AMZN", name: "Amazon", price: 142.50, change: +1.2, sentiment: "positive", vibe: "Quiet strength", buzz: "Low" },
-  { symbol: "GOOGL", name: "Alphabet", price: 138.25, change: -0.5, sentiment: "neutral", vibe: "Consolidating", buzz: "Medium" },
-  { symbol: "MSFT", name: "Microsoft", price: 378.85, change: +2.1, sentiment: "positive", vibe: "AI wave", buzz: "High" },
-];
-
-const aiInsight = "Markets are breathing easy today. Your portfolio's up 1.4% — mostly thanks to NVDA's chip rally. No major moves needed. Everything's cruising.";
 
 export default function Portfolio() {
   const [holdingsFilter, setHoldingsFilter] = useState("All");
   const [watchlistFilter, setWatchlistFilter] = useState("All");
+  const [loading, setLoading] = useState(true);
+  const [portfolioData, setPortfolioData] = useState<any>(null);
+
+  // Hardcoded test user ID (in production, get from auth)
+  const userId = "cmh503gjd00008okpn9ic7cia";
+
+  useEffect(() => {
+    async function fetchPortfolio() {
+      try {
+        const response = await fetch(`/api/portfolio/summary?userId=${userId}`);
+        const data = await response.json();
+        setPortfolioData(data);
+      } catch (error) {
+        console.error('Error fetching portfolio:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchPortfolio();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen p-4 flex items-center justify-center">
+        <div className="text-gray-400">Loading portfolio...</div>
+      </div>
+    );
+  }
+
+  if (!portfolioData) {
+    return (
+      <div className="min-h-screen p-4 flex items-center justify-center">
+        <div className="text-gray-400">Failed to load portfolio</div>
+      </div>
+    );
+  }
+
+  const { summary, holdings, watchlist } = portfolioData;
+
+  // Generate AI insight based on portfolio performance
+  const generateInsight = () => {
+    const { dayChangePercent, totalGainLossPercent } = summary;
+    const topGainer = holdings.sort((a: any, b: any) => b.gainLossPercent - a.gainLossPercent)[0];
+
+    if (dayChangePercent > 1) {
+      return `Nice! Your portfolio's up ${dayChangePercent.toFixed(1)}% today. ${topGainer?.name || 'Your top holding'} is leading the charge. Keep riding the wave 🌊`;
+    } else if (dayChangePercent > 0) {
+      return `Markets are calm today. Your portfolio's up ${dayChangePercent.toFixed(1)}% — steady as she goes. No drama, no worries.`;
+    } else if (dayChangePercent > -1) {
+      return `Small dip of ${Math.abs(dayChangePercent).toFixed(1)}% today, but you're still up ${totalGainLossPercent.toFixed(1)}% overall. Short-term noise, long-term gains 💪`;
+    } else {
+      return `Rough day with a ${Math.abs(dayChangePercent).toFixed(1)}% drop. Remember: you're still up ${totalGainLossPercent.toFixed(1)}% overall. This is temporary.`;
+    }
+  };
 
   return (
     <div className="min-h-screen p-4 space-y-6">
@@ -104,29 +96,29 @@ export default function Portfolio() {
         <div className="relative z-10">
           <p className="text-sm text-gray-400 mb-2">Total Value</p>
           <h2 className="text-4xl font-bold text-gray-100 mb-4">
-            ${portfolioSummary.totalValue.toLocaleString()}
+            ${summary.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </h2>
 
           <div className="flex items-center gap-2">
             <span
               className={`text-lg font-semibold ${
-                portfolioSummary.dayChange >= 0
+                summary.dayChange >= 0
                   ? "text-rabbit-success"
                   : "text-rabbit-error"
               }`}
             >
-              {portfolioSummary.dayChange >= 0 ? "+" : ""}
-              ${Math.abs(portfolioSummary.dayChange).toFixed(2)}
+              {summary.dayChange >= 0 ? "+" : ""}
+              ${Math.abs(summary.dayChange).toFixed(2)}
             </span>
             <span
               className={`text-sm ${
-                portfolioSummary.dayChange >= 0
+                summary.dayChange >= 0
                   ? "text-rabbit-success/70"
                   : "text-rabbit-error/70"
               }`}
             >
-              ({portfolioSummary.dayChangePercent >= 0 ? "+" : ""}
-              {portfolioSummary.dayChangePercent.toFixed(2)}%)
+              ({summary.dayChangePercent >= 0 ? "+" : ""}
+              {summary.dayChangePercent.toFixed(2)}%)
             </span>
             <span className="text-gray-500 text-sm">today</span>
           </div>
@@ -148,7 +140,7 @@ export default function Portfolio() {
             <p className="text-sm font-medium text-rabbit-lavender-300 mb-1">
               Today's Insight
             </p>
-            <p className="text-sm text-gray-300 leading-relaxed">{aiInsight}</p>
+            <p className="text-sm text-gray-300 leading-relaxed">{generateInsight()}</p>
           </div>
         </div>
       </motion.div>
@@ -169,7 +161,7 @@ export default function Portfolio() {
         />
 
         <div className="space-y-3">
-          {stocks.map((stock, index) => (
+          {holdings.map((stock: any, index: number) => (
             <motion.div
               key={stock.symbol}
               initial={{ opacity: 0, x: -10 }}
@@ -282,7 +274,7 @@ export default function Portfolio() {
         />
 
         <div className="space-y-2">
-          {watchlist.map((stock, index) => (
+          {watchlist.map((stock: any, index: number) => (
             <motion.div
               key={stock.symbol}
               initial={{ opacity: 0, x: -10 }}
@@ -308,28 +300,18 @@ export default function Portfolio() {
 
               <div className="text-right">
                 <p className="text-sm font-medium text-gray-200">
-                  ${stock.price}
+                  ${stock.currentPrice.toFixed(2)}
                 </p>
                 <p
                   className={`text-xs ${
-                    stock.change >= 0
+                    stock.dayChange >= 0
                       ? "text-rabbit-success"
                       : "text-rabbit-error"
                   }`}
                 >
-                  {stock.change >= 0 ? "+" : ""}
-                  {stock.change.toFixed(1)}%
+                  {stock.dayChange >= 0 ? "+" : ""}
+                  {stock.dayChange.toFixed(2)}%
                 </p>
-                <div className="flex items-center gap-1 mt-1">
-                  <span className="text-xs text-gray-600">{stock.vibe}</span>
-                  <span className={`text-xs ${
-                    stock.buzz === "High" ? "text-rabbit-mint-400" :
-                    stock.buzz === "Medium" ? "text-gray-500" :
-                    "text-gray-600"
-                  }`}>
-                    • {stock.buzz} buzz
-                  </span>
-                </div>
               </div>
             </motion.div>
           ))}

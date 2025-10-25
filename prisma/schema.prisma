@@ -17,32 +17,72 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  lists List[]
+  holdings  Holding[]
+  watchlist Watchlist[]
 
   @@map("users")
 }
 
-model List {
-  id        String   @id @default(cuid())
-  name      String
-  type      String   // "Invested" or "Watchlist"
-  userId    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// Stocks the user owns
+model Holding {
+  id           String   @id @default(cuid())
+  userId       String
+  symbol       String
+  name         String
+  shares       Float
+  avgPrice     Float    // Average purchase price
+  purchaseDate DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  holdings Holding[]
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("lists")
+  @@unique([userId, symbol])
+  @@map("holdings")
 }
 
-model Holding {
+// Stocks the user is watching
+model Watchlist {
   id        String   @id @default(cuid())
+  userId    String
   symbol    String
-  listId    String
+  name      String
   addedAt   DateTime @default(now())
 
-  list List @relation(fields: [listId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("holdings")
+  @@unique([userId, symbol])
+  @@map("watchlist")
+}
+
+// Cache for stock prices (to avoid excessive API calls)
+model StockPrice {
+  id               String   @id @default(cuid())
+  symbol           String   @unique
+  name             String
+  currentPrice     Float
+  previousClose    Float
+  dayChange        Float
+  dayChangePercent Float
+  volume           String?
+  marketCap        String?
+  lastUpdated      DateTime @default(now())
+
+  @@map("stock_prices")
+}
+
+// Trending stocks with social sentiment
+model TrendingStock {
+  id               String   @id @default(cuid())
+  symbol           String   @unique
+  name             String
+  sentiment        String   // positive, negative, neutral
+  vibe             String   // "On fire", "Steady climb", etc.
+  redditMentions   Int
+  redditBenchmark  Int      // Average mentions for comparison
+  momentum         String   // "Strong", "Building", "Fading"
+  friendsWatching  Int
+  lastUpdated      DateTime @default(now())
+
+  @@map("trending_stocks")
 }

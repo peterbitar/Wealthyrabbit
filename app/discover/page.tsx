@@ -1,12 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import FilterChips from "@/components/FilterChips";
 import TimeFilter from "@/components/TimeFilter";
 
-// Dummy data
-const trendingStocks = [
+// Default dummy data (will be replaced with API data)
+const defaultTrendingStocks = [
   {
     symbol: "PLTR",
     name: "Palantir",
@@ -159,6 +159,45 @@ export default function Discover() {
   const [newsletterTime, setNewsletterTime] = useState("This Week");
   const [newsFilter, setNewsFilter] = useState("All");
   const [newsTime, setNewsTime] = useState("Today");
+
+  // State for API data
+  const [trendingStocks, setTrendingStocks] = useState<any[]>(defaultTrendingStocks);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch trending stocks from API
+  useEffect(() => {
+    async function fetchTrendingStocks() {
+      try {
+        const response = await fetch('/api/stocks/trending');
+        const data = await response.json();
+
+        if (data.stocks) {
+          // Transform API data to match UI expectations
+          const transformedStocks = data.stocks.map((stock: any) => ({
+            symbol: stock.symbol,
+            name: stock.name,
+            price: stock.currentPrice,
+            change: stock.dayChangePercent,
+            volume: stock.momentum === 'Strong' ? 'Very High' : stock.momentum === 'Building' ? 'High' : 'Medium',
+            reason: stock.vibe,
+            redditVibe: stock.vibe,
+            socialScore: stock.redditMentions,
+            socialBenchmark: stock.redditBenchmark,
+            retailInterest: stock.momentum,
+            sentiment: stock.sentiment,
+            friendsWatching: stock.friendsWatching,
+          }));
+          setTrendingStocks(transformedStocks);
+        }
+      } catch (error) {
+        console.error('Error fetching trending stocks:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchTrendingStocks();
+  }, []);
 
   return (
     <div className="min-h-screen p-4 space-y-6">
