@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { sendWhatsAppMessage, formatStockAlert, formatPortfolioUpdate, formatDailyDigest, type StockAlert, type PortfolioUpdate } from '@/lib/whatsapp';
+import { sendTelegramMessage } from '@/lib/telegram';
 
 // POST /api/notifications/send - Send notifications to users
 export async function POST(request: Request) {
@@ -31,47 +31,31 @@ export async function POST(request: Request) {
     }
 
     const settings = user.notificationSettings;
-    if (!settings || !settings.whatsapp) {
+    if (!settings || !settings.telegram) {
       return NextResponse.json(
-        { error: 'WhatsApp notifications not enabled' },
+        { error: 'Telegram notifications not enabled' },
         { status: 400 }
       );
     }
 
-    if (!user.phone) {
+    if (!user.telegramChatId) {
       return NextResponse.json(
-        { error: 'Phone number not set' },
+        { error: 'Telegram chat ID not set' },
         { status: 400 }
       );
     }
 
-    // Format message based on type
-    let message = '';
-    switch (type) {
-      case 'stock_alert':
-        if (!settings.portfolioAlerts) {
-          return NextResponse.json({ error: 'Portfolio alerts disabled' }, { status: 400 });
-        }
-        message = formatStockAlert(data as StockAlert);
-        break;
-
-      case 'portfolio_update':
-        message = formatPortfolioUpdate(data as PortfolioUpdate);
-        break;
-
-      case 'daily_digest':
-        message = formatDailyDigest(data);
-        break;
-
-      default:
-        return NextResponse.json(
-          { error: 'Invalid notification type' },
-          { status: 400 }
-        );
+    // Get message from request
+    const { message } = data;
+    if (!message) {
+      return NextResponse.json(
+        { error: 'Message is required' },
+        { status: 400 }
+      );
     }
 
-    // Send WhatsApp message
-    const result = await sendWhatsAppMessage(user.phone, message);
+    // Send Telegram message
+    const result = await sendTelegramMessage(user.telegramChatId, message);
 
     if (!result.success) {
       return NextResponse.json(
@@ -93,12 +77,12 @@ export async function POST(request: Request) {
 // GET /api/notifications/send - Check for users who need notifications
 export async function GET() {
   try {
-    // Get all users with WhatsApp enabled
+    // Get all users with Telegram enabled
     const users = await prisma.user.findMany({
       where: {
-        phone: { not: null },
+        telegramChatId: { not: null },
         notificationSettings: {
-          whatsapp: true,
+          telegram: true,
           portfolioAlerts: true,
         },
       },
@@ -134,7 +118,7 @@ export async function GET() {
         if (changePercent >= threshold) {
           notifications.push({
             userId: user.id,
-            phone: user.phone,
+            chatId: user.telegramChatId,
             type: 'stock_alert',
             data: {
               symbol: holding.symbol,

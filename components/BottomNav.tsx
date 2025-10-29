@@ -10,12 +10,12 @@ export default function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-rabbit-card border-t border-rabbit-border z-50">
-      <div className="max-w-lg mx-auto px-4 py-3">
+      <div className="max-w-lg mx-auto px-2 py-2 sm:px-4">
         <div className="flex justify-around items-center">
           {/* Portfolio */}
           <Link
             href="/portfolio"
-            className={`flex flex-col items-center gap-1 transition-all ${
+            className={`flex flex-col items-center gap-1 transition-all min-h-[44px] min-w-[44px] justify-center ${
               isActive("/portfolio")
                 ? "text-rabbit-mint-400"
                 : "text-gray-400 hover:text-gray-300"
@@ -43,7 +43,7 @@ export default function BottomNav() {
           {/* Discover */}
           <Link
             href="/discover"
-            className={`flex flex-col items-center gap-1 transition-all ${
+            className={`flex flex-col items-center gap-1 transition-all min-h-[44px] min-w-[44px] justify-center ${
               isActive("/discover")
                 ? "text-rabbit-mint-400"
                 : "text-gray-400 hover:text-gray-300"
@@ -71,7 +71,7 @@ export default function BottomNav() {
           {/* Ask */}
           <Link
             href="/ask"
-            className={`flex flex-col items-center gap-1 transition-all ${
+            className={`flex flex-col items-center gap-1 transition-all min-h-[44px] min-w-[44px] justify-center ${
               isActive("/ask")
                 ? "text-rabbit-lavender-400"
                 : "text-gray-400 hover:text-gray-300"
@@ -99,7 +99,7 @@ export default function BottomNav() {
           {/* Manage */}
           <Link
             href="/manage"
-            className={`flex flex-col items-center gap-1 transition-all ${
+            className={`flex flex-col items-center gap-1 transition-all min-h-[44px] min-w-[44px] justify-center ${
               isActive("/manage")
                 ? "text-rabbit-mint-400"
                 : "text-gray-400 hover:text-gray-300"

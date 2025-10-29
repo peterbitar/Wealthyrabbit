@@ -7,8 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "lint:strict": "tsc --noEmit",
+    "ts-prune": "ts-prune",
+    "typecheck": "tsc --noEmit",
     "prisma:mig": "prisma migrate dev",
-    "prisma:gen": "prisma generate"
+    "prisma:gen": "prisma generate",
+    "telegram:webhook-info": "tsx scripts/telegram-webhook.ts info",
+    "telegram:delete-webhook": "tsx scripts/telegram-webhook.ts delete",
+    "telegram:set-webhook": "tsx scripts/telegram-webhook.ts set"
   },
   "dependencies": {
     "@prisma/client": "^6.18.0",
@@ -23,13 +29,20 @@
     "twilio": "^5.10.3"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
+    "@eslint/js": "^9.38.0",
     "@types/node": "^20.0.0",
+    "@types/node-telegram-bot-api": "^0.64.12",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "autoprefixer": "^10.4.0",
+    "eslint": "^9.38.0",
+    "eslint-config-next": "^16.0.1",
+    "eslint-plugin-unused-imports": "^4.3.0",
     "postcss": "^8.4.0",
     "prisma": "^6.18.0",
     "tailwindcss": "^3.4.0",
+    "ts-prune": "^0.10.3",
     "tsx": "^4.20.6",
     "typescript": "^5.0.0"
   }

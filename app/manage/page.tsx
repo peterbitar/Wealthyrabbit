@@ -9,6 +9,8 @@ export default function Manage() {
   const [saving, setSaving] = useState(false);
   const [testingSMS, setTestingSMS] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [sendingBriefing, setSendingBriefing] = useState(false);
+  const [briefingResult, setBriefingResult] = useState<{ success: boolean; message: string } | null>(null);
   const [telegramChatId, setTelegramChatId] = useState("");
   const [notificationMode, setNotificationMode] = useState<"calm" | "balanced" | "active">("balanced");
   const [channels, setChannels] = useState({
@@ -123,6 +125,43 @@ export default function Manage() {
     }
   };
 
+  // Send on-demand briefing
+  const sendBriefingNow = async () => {
+    setSendingBriefing(true);
+    setBriefingResult(null);
+
+    try {
+      const response = await fetch('/api/briefing/send-now', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setBriefingResult({
+          success: true,
+          message: data.message || 'Briefing sent to Telegram!',
+        });
+      } else {
+        setBriefingResult({
+          success: false,
+          message: data.error || 'Failed to send briefing',
+        });
+      }
+    } catch (error) {
+      setBriefingResult({
+        success: false,
+        message: 'Network error. Please try again.',
+      });
+    } finally {
+      setSendingBriefing(false);
+      // Clear message after 5 seconds
+      setTimeout(() => setBriefingResult(null), 5000);
+    }
+  };
+
   const modes = [
     {
       id: "calm" as const,
@@ -169,6 +208,72 @@ export default function Manage() {
         <p className="text-sm text-gray-400">
           Control how much the app talks to you
         </p>
+      </motion.div>
+
+      {/* On-Demand Briefing */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="bg-rabbit-card rounded-2xl p-6 border border-rabbit-border"
+      >
+        <div className="flex items-start gap-4 mb-4">
+          <span className="text-3xl">📊</span>
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold text-gray-100 mb-1">
+              On-Demand Briefing
+            </h3>
+            <p className="text-sm text-gray-400">
+              Get an instant summary of your holdings — news, Reddit buzz, and expert takes.
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              I'll read everything and show you both sides. Sent via Telegram.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={sendBriefingNow}
+          disabled={sendingBriefing || !telegramChatId}
+          className="w-full px-6 py-3 bg-rabbit-mint-500 hover:bg-rabbit-mint-600 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-xl text-white font-medium transition-colors flex items-center justify-center gap-2"
+        >
+          {sendingBriefing ? (
+            <>
+              <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Sending...
+            </>
+          ) : (
+            <>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              Send "Right-Now" Briefing
+            </>
+          )}
+        </button>
+
+        {!telegramChatId && (
+          <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+            <p className="text-xs text-yellow-400">
+              ⚠️  Link your Telegram account below to use this feature
+            </p>
+          </div>
+        )}
+
+        {briefingResult && (
+          <div
+            className={`mt-3 p-3 rounded-lg text-sm ${
+              briefingResult.success
+                ? 'bg-rabbit-mint-500/10 border border-rabbit-mint-500/30 text-rabbit-mint-400'
+                : 'bg-rabbit-error/10 border border-rabbit-error/30 text-rabbit-error'
+            }`}
+          >
+            {briefingResult.message}
+          </div>
+        )}
       </motion.div>
 
       {/* Notification Mode */}
