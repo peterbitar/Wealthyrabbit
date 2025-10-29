@@ -1,5 +1,6 @@
 import { prisma } from './prisma';
 import { sendTelegramMessage } from './telegram';
+import { runAbnormalEventCheck } from './abnormal-event-detector';
 
 interface StockPrice {
   symbol: string;
@@ -14,7 +15,7 @@ interface UserNotificationState {
 }
 
 const userStates = new Map<string, UserNotificationState>();
-const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
+const CHECK_INTERVAL = 15 * 60 * 1000; // 15 minutes - check for abnormal events
 
 async function fetchStockPrice(symbol: string): Promise<{ price: number; changePercent: number } | null> {
   try {
@@ -317,6 +318,11 @@ async function checkAndNotifyUser(userId: string) {
   }
 }
 
+/**
+ * Legacy notification check (detailed narratives for all stocks)
+ * Kept for reference/manual testing
+ * The scheduler now uses runAbnormalEventCheck() instead
+ */
 async function runNotificationCheck() {
   try {
     // Get all users with Telegram enabled
@@ -403,7 +409,8 @@ function registerShutdownHandlers() {
 
 /**
  * Starts the notification scheduler.
- * - Runs every 5 minutes
+ * - Runs every 15 minutes
+ * - Uses abnormal event detection (only alerts on interesting moves)
  * - Automatically registers shutdown handlers
  * - Safe to call multiple times (won't create duplicates)
  */
@@ -415,26 +422,27 @@ export function startNotificationScheduler() {
     return;
   }
 
-  console.log('🚀 Starting notification scheduler');
+  console.log('🚀 Starting abnormal event detection scheduler');
   console.log(`   Check interval: ${CHECK_INTERVAL / 1000 / 60} minutes`);
-  console.log(`   First check in: 10 seconds`);
+  console.log(`   Mode: Trigger-based (only abnormal events)`);
+  console.log(`   First check in: 30 seconds`);
 
   // Register cleanup handlers on first start
   registerShutdownHandlers();
 
-  // Run first check after 10 seconds (let server initialize)
+  // Run first check after 30 seconds (let server initialize)
   setTimeout(() => {
-    console.log('⏰ Running initial notification check...');
+    console.log('⏰ Running initial abnormal event check...');
     lastRunTime = new Date();
-    runNotificationCheck();
-  }, 10000);
+    runAbnormalEventCheck();
+  }, 30000);
 
-  // Then run every 5 minutes
+  // Then run every 15 minutes
   notificationInterval = setInterval(() => {
-    console.log(`⏰ Running scheduled notification check (${new Date().toLocaleString()})`);
+    console.log(`⏰ Running scheduled abnormal event check (${new Date().toLocaleString()})`);
     lastRunTime = new Date();
-    runNotificationCheck();
+    runAbnormalEventCheck();
   }, CHECK_INTERVAL);
 
-  console.log('✅ Notification scheduler started successfully');
+  console.log('✅ Abnormal event scheduler started successfully');
 }

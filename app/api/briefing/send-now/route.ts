@@ -6,14 +6,15 @@ interface StockContext {
   symbol: string;
   price: number;
   changePercent: number;
-  news: Array<{ headline: string; summary: string }>;
+  monthChangePercent: number;
+  news: Array<{ headline: string; summary: string; datetime: number }>;
   reddit: { title: string; sentiment: 'bullish' | 'bearish' | 'neutral'; score: number } | null;
 }
 
 /**
- * Fetch current stock price from Finnhub
+ * Fetch current stock price and calculate month change from Finnhub
  */
-async function fetchStockPrice(symbol: string): Promise<{ price: number; changePercent: number } | null> {
+async function fetchStockPrice(symbol: string): Promise<{ price: number; changePercent: number; monthChangePercent: number } | null> {
   try {
     const apiKey = process.env.FINNHUB_API_KEY;
     if (!apiKey) {
@@ -21,16 +22,35 @@ async function fetchStockPrice(symbol: string): Promise<{ price: number; changeP
       return null;
     }
 
+    // Get current quote
     const response = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`);
     const data = await response.json();
 
-    if (data.c && data.dp !== undefined) {
-      return {
-        price: data.c,
-        changePercent: data.dp,
-      };
+    if (!data.c || data.dp === undefined) {
+      return null;
     }
-    return null;
+
+    // Get historical price from 30 days ago
+    const today = Math.floor(Date.now() / 1000);
+    const monthAgo = today - (30 * 24 * 60 * 60);
+
+    const histResponse = await fetch(
+      `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=D&from=${monthAgo}&to=${monthAgo + 86400}&token=${apiKey}`
+    );
+    const histData = await histResponse.json();
+
+    let monthChangePercent = data.dp; // Default to day change if historical not available
+
+    if (histData.c && histData.c.length > 0) {
+      const priceMonthAgo = histData.c[0];
+      monthChangePercent = ((data.c - priceMonthAgo) / priceMonthAgo) * 100;
+    }
+
+    return {
+      price: data.c,
+      changePercent: data.dp,
+      monthChangePercent,
+    };
   } catch (error) {
     console.error(`Error fetching price for ${symbol}:`, error);
     return null;
@@ -38,16 +58,16 @@ async function fetchStockPrice(symbol: string): Promise<{ price: number; changeP
 }
 
 /**
- * Fetch news for a specific stock
+ * Fetch news for a specific stock from the past month
  */
-async function fetchStockNews(symbol: string): Promise<Array<{ headline: string; summary: string }>> {
+async function fetchStockNews(symbol: string): Promise<Array<{ headline: string; summary: string; datetime: number }>> {
   try {
     const apiKey = process.env.FINNHUB_API_KEY;
     if (!apiKey) return [];
 
     const today = new Date();
-    const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const fromDate = lastWeek.toISOString().split('T')[0];
+    const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const fromDate = lastMonth.toISOString().split('T')[0];
     const toDate = today.toISOString().split('T')[0];
 
     const response = await fetch(
@@ -55,10 +75,11 @@ async function fetchStockNews(symbol: string): Promise<Array<{ headline: string;
     );
     const data = await response.json();
 
-    // Get top 2 most recent news
-    return data.slice(0, 2).map((item: any) => ({
+    // Get top 3 most recent significant news
+    return data.slice(0, 3).map((item: any) => ({
       headline: item.headline,
       summary: item.summary || '',
+      datetime: item.datetime,
     }));
   } catch (error) {
     console.error(`Error fetching news for ${symbol}:`, error);
@@ -132,73 +153,70 @@ async function fetchRedditSentiment(symbol: string): Promise<{ title: string; se
 /**
  * Build a balanced narrative for a single stock
  * Shows both bull and bear perspectives when available
+ * Focuses on the past month's important moves
  */
 function buildStockNarrative(stock: StockContext): string {
-  const { symbol, price, changePercent, news, reddit } = stock;
-  const isGaining = changePercent >= 0;
-  const absChange = Math.abs(changePercent);
+  const { symbol, price, changePercent, monthChangePercent, news, reddit } = stock;
+  const monthIsGaining = monthChangePercent >= 0;
+  const absMonthChange = Math.abs(monthChangePercent);
 
-  let narrative = `*${symbol}*\n`;
+  let narrative = `*${symbol}* — $${price.toFixed(2)}\n`;
 
-  // What happened (news-driven if available)
-  if (news.length > 0) {
-    const mainNews = news[0];
-    narrative += `What happened: ${mainNews.headline}\n`;
-
-    // Brief context if available
-    if (mainNews.summary && mainNews.summary.length > 0) {
-      const summary = mainNews.summary.length > 80
-        ? mainNews.summary.substring(0, 80) + '...'
-        : mainNews.summary;
-      narrative += `${summary}\n`;
-    }
+  // Month performance
+  if (absMonthChange > 15) {
+    narrative += `Past month: ${monthIsGaining ? '🚀 Up' : '📉 Down'} ${monthChangePercent.toFixed(1)}% — significant move.\n\n`;
+  } else if (absMonthChange > 5) {
+    narrative += `Past month: ${monthIsGaining ? 'Up' : 'Down'} ${monthChangePercent.toFixed(1)}%.\n\n`;
   } else {
-    // No news - describe price action
-    if (absChange > 3) {
-      narrative += `What happened: ${isGaining ? 'Strong rally' : 'Sharp pullback'} — ${isGaining ? '+' : ''}${changePercent.toFixed(1)}%\n`;
-    } else if (absChange > 1) {
-      narrative += `What happened: ${isGaining ? 'Steady climb' : 'Modest decline'} — ${isGaining ? '+' : ''}${changePercent.toFixed(1)}%\n`;
-    } else {
-      narrative += `What happened: Trading relatively flat — ${isGaining ? '+' : ''}${changePercent.toFixed(1)}%\n`;
-    }
+    narrative += `Past month: Pretty flat (${monthIsGaining ? '+' : ''}${monthChangePercent.toFixed(1)}%).\n\n`;
+  }
+
+  // What happened (news-driven, show multiple if available)
+  if (news.length > 0) {
+    narrative += `What happened:\n`;
+    news.slice(0, 2).forEach((item, idx) => {
+      const daysAgo = Math.floor((Date.now() / 1000 - item.datetime) / 86400);
+      const timeStr = daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : `${daysAgo}d ago`;
+      narrative += `• ${timeStr}: ${item.headline}\n`;
+    });
+    narrative += `\n`;
   }
 
   // Reddit sentiment (balanced view)
   if (reddit) {
     if (reddit.sentiment === 'bullish') {
-      narrative += `Reddit says: Retail's excited (${reddit.score.toLocaleString()} upvotes) — but also: remember echo chambers exist.\n`;
+      narrative += `Reddit: Retail's hyped (${reddit.score.toLocaleString()} upvotes). Excitement is real, but crowds can be wrong. Echo chambers form fast in bull markets.\n\n`;
     } else if (reddit.sentiment === 'bearish') {
-      narrative += `Reddit says: Bearish chatter building (${reddit.score.toLocaleString()} upvotes) — but also: sentiment can flip fast.\n`;
+      narrative += `Reddit: Bearish chatter (${reddit.score.toLocaleString()} upvotes). Fear spreading, but panic often marks bottoms. Sentiment shifts quickly.\n\n`;
     } else {
-      narrative += `Reddit says: Mixed signals (${reddit.score.toLocaleString()} upvotes) — healthy debate happening.\n`;
+      narrative += `Reddit: Mixed (${reddit.score.toLocaleString()} upvotes). Healthy debate happening — usually means transition period.\n\n`;
     }
-  } else {
-    // No Reddit data - provide balanced take on price action
-    if (absChange > 3) {
-      narrative += `Reddit says: ${isGaining ? 'Likely seeing excitement build' : 'Caution probably spreading'} — but also: ${isGaining ? 'momentum can fade quickly' : 'dips often bring buyers'}.\n`;
-    } else {
-      narrative += `Reddit says: Not much chatter yet — which could mean flying under radar or simply quiet day.\n`;
-    }
+  } else if (absMonthChange > 5) {
+    narrative += `Reddit: ${monthIsGaining ? 'Probably buzzing quietly. Retail follows momentum, so expect more chatter if this continues.' : 'Likely cautious. When retail goes quiet during drops, it can signal capitulation or simply disinterest.'}\n\n`;
   }
 
-  // Experts/Analysts view (balanced interpretation)
-  if (news.length > 1) {
-    // Multiple news items suggest analyst attention
-    narrative += `Experts: Getting coverage — ${isGaining ? 'positive catalysts noted' : 'concerns being raised'}. ${isGaining ? 'But remember: analysts chase momentum.' : 'Though selling often creates entry points.'}\n`;
+  // Experts/Analysts view (complete thoughts)
+  if (news.length >= 2) {
+    narrative += `Experts: Multiple headlines = analysts are paying attention. `;
+    if (monthIsGaining) {
+      narrative += `They're highlighting catalysts and raising targets. But remember: analysts tend to chase price. They upgrade after runs, downgrade after drops. By the time coverage peaks, smart money is often rotating out.`;
+    } else {
+      narrative += `Concerns being voiced, caution advised. But here's the flip side: when everyone's bearish and coverage is negative, that's often when value emerges. Analysts are backwards-looking more than they admit.`;
+    }
   } else if (news.length === 1) {
-    narrative += `Experts: Some attention — ${isGaining ? 'optimism emerging' : 'caution advised'}. Always worth reading full context though.\n`;
+    narrative += `Experts: Light coverage. `;
+    if (monthIsGaining) {
+      narrative += `Optimism starting to emerge. Could be early — before the herd arrives — or could be late-stage FOMO. Context matters.`;
+    } else {
+      narrative += `Some caution being advised. When only a few are paying attention during weakness, it's worth asking: is this ignored opportunity or justified pessimism?`;
+    }
   } else {
-    // No analyst coverage
-    narrative += `Experts: Quiet from analysts — ${isGaining ? 'sleeper momentum or just noise?' : 'ignored for now, but watch for changes'}.\n`;
-  }
-
-  // Current feel (calm, balanced assessment)
-  if (absChange > 5) {
-    narrative += `Current feel: Big move. ${isGaining ? 'Exciting, but check if it\'s sustainable' : 'Painful, but sometimes these shake out weak hands'}. At $${price.toFixed(2)}.`;
-  } else if (absChange > 2) {
-    narrative += `Current feel: Solid ${isGaining ? 'momentum' : 'pressure'}. ${isGaining ? 'Buyers showing up' : 'Sellers in control for now'}. At $${price.toFixed(2)}.`;
-  } else {
-    narrative += `Current feel: Calm day. Nothing dramatic, just normal flow. At $${price.toFixed(2)}.`;
+    narrative += `Experts: Radio silence. `;
+    if (monthIsGaining) {
+      narrative += `Flying under the radar. That's either stealth accumulation by smart money, or it's noise that'll fade. Time will tell.`;
+    } else {
+      narrative += `Completely ignored during this drop. Sometimes that's the best setup — forgotten names that quietly improve while no one's watching.`;
+    }
   }
 
   return narrative;
@@ -271,11 +289,10 @@ export async function POST(request: NextRequest) {
 
     console.log(`📈 Gathering context for ${user.holdings.length} holdings...`);
 
-    // Gather context for each holding (limit to first 5 to stay under character limit)
-    const holdingsToAnalyze = user.holdings.slice(0, 5);
+    // Analyze all holdings (no limit - send multiple messages if needed)
     const stockContexts: StockContext[] = [];
 
-    for (const holding of holdingsToAnalyze) {
+    for (const holding of user.holdings) {
       console.log(`  Fetching data for ${holding.symbol}...`);
 
       const [priceData, news, reddit] = await Promise.all([
@@ -293,6 +310,7 @@ export async function POST(request: NextRequest) {
         symbol: holding.symbol,
         price: priceData.price,
         changePercent: priceData.changePercent,
+        monthChangePercent: priceData.monthChangePercent,
         news,
         reddit,
       });
@@ -306,36 +324,45 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build the briefing message
-    let message = '📊 *Right-Now Briefing*\n\n';
-    message += 'I read everything for you — here\'s both sides.\n\n';
+    // Send intro message
+    const introMessage = `📊 *Portfolio Briefing*\n\nI read everything for you — here's what happened in the past month.\n\nShowing both sides on ${stockContexts.length} ${stockContexts.length === 1 ? 'holding' : 'holdings'}...`;
+    await sendTelegramMessage(user.telegramChatId, introMessage);
 
-    const narratives = stockContexts.map(stock => buildStockNarrative(stock));
-    message += narratives.join('\n\n');
+    // Small delay between messages
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // Check message length and truncate if needed
-    if (message.length > 1300) {
-      const truncateCount = stockContexts.length - 3;
-      message = '📊 *Right-Now Briefing*\n\n';
-      message += 'I read everything for you — here\'s both sides.\n\n';
-      message += narratives.slice(0, 3).join('\n\n');
-      message += `\n\n(+${truncateCount} more in your portfolio...)`;
+    // Send one message per stock (or group if small)
+    let successCount = 0;
+    for (const stock of stockContexts) {
+      const narrative = buildStockNarrative(stock);
+
+      console.log(`📤 Sending ${stock.symbol} briefing (${narrative.length} chars)`);
+
+      const result = await sendTelegramMessage(user.telegramChatId, narrative);
+
+      if (result.success) {
+        successCount++;
+        // Small delay between messages to make it feel more human
+        await new Promise(resolve => setTimeout(resolve, 800));
+      } else {
+        console.error(`❌ Failed to send ${stock.symbol} briefing: ${result.error}`);
+      }
     }
 
-    message += '\n\n🐇 WealthyRabbit';
+    // Send closing message
+    const closingMessage = `\n🐇 That's everything from WealthyRabbit.\n\nQuestions? Just ask.`;
+    await sendTelegramMessage(user.telegramChatId, closingMessage);
 
-    console.log(`📤 Sending briefing (${message.length} chars) to user ${userId}`);
-
-    // Send via Telegram
-    const result = await sendTelegramMessage(user.telegramChatId, message);
-
-    if (result.success) {
-      console.log(`✅ Briefing sent successfully to user ${userId}`);
-      return NextResponse.json({ ok: true, message: 'Briefing sent to your Telegram!' });
+    if (successCount === stockContexts.length) {
+      console.log(`✅ Full briefing sent successfully (${successCount} stocks)`);
+      return NextResponse.json({ ok: true, message: `Briefing sent! Check Telegram for ${successCount} updates.` });
+    } else if (successCount > 0) {
+      console.log(`⚠️  Partial success: ${successCount}/${stockContexts.length} stocks sent`);
+      return NextResponse.json({ ok: true, message: `Sent ${successCount}/${stockContexts.length} updates. Check Telegram.` });
     } else {
-      console.error(`❌ Failed to send briefing: ${result.error}`);
+      console.error(`❌ Failed to send any briefings`);
       return NextResponse.json(
-        { error: 'Failed to send message. Please try again.' },
+        { error: 'Failed to send briefing. Please try again.' },
         { status: 500 }
       );
     }
