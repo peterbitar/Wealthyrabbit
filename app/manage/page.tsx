@@ -1,13 +1,19 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Manage() {
+  const userId = "cmh503gjd00008okpn9ic7cia"; // Hardcoded test user ID
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [testingSMS, setTestingSMS] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [telegramChatId, setTelegramChatId] = useState("");
   const [notificationMode, setNotificationMode] = useState<"calm" | "balanced" | "active">("balanced");
   const [channels, setChannels] = useState({
     inApp: true,
-    whatsapp: false,
+    telegram: false,
     email: true,
   });
 
@@ -18,6 +24,104 @@ export default function Manage() {
     friendActivity: true,
     portfolioAlerts: true,
   });
+
+  // Load settings on mount
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const response = await fetch(`/api/notifications/settings?userId=${userId}`);
+        const data = await response.json();
+
+        if (data.settings) {
+          setNotificationMode(data.settings.mode as "calm" | "balanced" | "active");
+          setChannels({
+            inApp: data.settings.inApp,
+            telegram: data.settings.telegram,
+            email: data.settings.email,
+          });
+          setTopics({
+            news: data.settings.news,
+            reddit: data.settings.reddit,
+            expertOpinions: data.settings.expertOpinions,
+            friendActivity: data.settings.friendActivity,
+            portfolioAlerts: data.settings.portfolioAlerts,
+          });
+        }
+        setTelegramChatId(data.telegramChatId || "");
+      } catch (error) {
+        console.error('Error loading settings:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadSettings();
+  }, []);
+
+  // Save settings whenever they change
+  useEffect(() => {
+    if (loading) return; // Don't save on initial load
+
+    async function saveSettings() {
+      setSaving(true);
+      try {
+        await fetch('/api/notifications/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId,
+            mode: notificationMode,
+            channels,
+            topics,
+            telegramChatId,
+          }),
+        });
+      } catch (error) {
+        console.error('Error saving settings:', error);
+      } finally {
+        setSaving(false);
+      }
+    }
+
+    const timeoutId = setTimeout(saveSettings, 500); // Debounce saves
+    return () => clearTimeout(timeoutId);
+  }, [notificationMode, channels, topics, telegramChatId, loading]);
+
+  // Test WhatsApp notification
+  const sendTestNotification = async () => {
+    setTestingSMS(true);
+    setTestResult(null);
+
+    try {
+      const response = await fetch('/api/notifications/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setTestResult({
+          success: true,
+          message: 'Test message sent! Check your WhatsApp.',
+        });
+      } else {
+        setTestResult({
+          success: false,
+          message: data.error || 'Failed to send test message',
+        });
+      }
+    } catch (error) {
+      setTestResult({
+        success: false,
+        message: 'Network error. Please try again.',
+      });
+    } finally {
+      setTestingSMS(false);
+      // Clear message after 5 seconds
+      setTimeout(() => setTestResult(null), 5000);
+    }
+  };
 
   const modes = [
     {
@@ -42,6 +146,14 @@ export default function Manage() {
       example: "Real-time alerts, trending stocks, friend activity",
     },
   ];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen p-4 flex items-center justify-center">
+        <div className="text-gray-400">Loading settings...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-4 space-y-6">
@@ -131,23 +243,107 @@ export default function Manage() {
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-200">WhatsApp</p>
-              <p className="text-xs text-gray-500">Daily digest via WhatsApp</p>
+              <p className="text-sm font-medium text-gray-200">Telegram</p>
+              <p className="text-xs text-gray-500">Instant alerts via Telegram</p>
             </div>
 
             <button
-              onClick={() => setChannels({ ...channels, whatsapp: !channels.whatsapp })}
+              onClick={() => setChannels({ ...channels, telegram: !channels.telegram })}
               className={`w-12 h-6 rounded-full transition-colors relative ${
-                channels.whatsapp ? "bg-rabbit-mint-500" : "bg-gray-700"
+                channels.telegram ? "bg-rabbit-mint-500" : "bg-gray-700"
               }`}
             >
               <div
                 className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                  channels.whatsapp ? "translate-x-6" : ""
+                  channels.telegram ? "translate-x-6" : ""
                 }`}
               />
             </button>
           </div>
+
+          {channels.telegram && (
+            <div className="pt-2 space-y-3">
+              {!telegramChatId ? (
+                <div className="bg-rabbit-dark/50 border border-rabbit-border rounded-lg p-4">
+                  <div className="flex items-start gap-3 mb-3">
+                    <span className="text-2xl">📱</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-200 mb-1">
+                        Link Your Telegram
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        Connect in 2 simple steps
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-2">
+                      <span className="flex-shrink-0 w-5 h-5 bg-rabbit-mint-500 text-rabbit-dark rounded-full flex items-center justify-center text-xs font-bold">
+                        1
+                      </span>
+                      <div className="flex-1">
+                        <p className="text-xs text-gray-300 mb-1">
+                          Open Telegram and search for your bot
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2">
+                      <span className="flex-shrink-0 w-5 h-5 bg-rabbit-mint-500 text-rabbit-dark rounded-full flex items-center justify-center text-xs font-bold">
+                        2
+                      </span>
+                      <div className="flex-1">
+                        <p className="text-xs text-gray-300 mb-2">
+                          Send this message to your bot:
+                        </p>
+                        <div className="bg-rabbit-dark border border-rabbit-border rounded px-3 py-2 font-mono text-xs text-rabbit-mint-400">
+                          /start {userId}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Your account will be linked automatically!
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="bg-rabbit-mint-500/10 border border-rabbit-mint-500/30 rounded-lg p-3 mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">✅</span>
+                      <p className="text-xs text-rabbit-mint-400 font-medium">
+                        Telegram Connected
+                      </p>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Chat ID: {telegramChatId}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={sendTestNotification}
+                    disabled={testingSMS}
+                    className="w-full px-4 py-2 bg-rabbit-mint-500 hover:bg-rabbit-mint-600 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-white text-sm font-medium transition-colors"
+                  >
+                    {testingSMS ? 'Sending...' : 'Send Test Message'}
+                  </button>
+
+                  {testResult && (
+                    <div
+                      className={`mt-2 p-2 rounded-lg text-xs ${
+                        testResult.success
+                          ? 'bg-rabbit-mint-500/10 border border-rabbit-mint-500/30 text-rabbit-mint-400'
+                          : 'bg-rabbit-error/10 border border-rabbit-error/30 text-rabbit-error'
+                      }`}
+                    >
+                      {testResult.message}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex items-center justify-between">
             <div>
@@ -249,7 +445,7 @@ export default function Manage() {
         </div>
       </motion.div>
 
-      {/* Calm message */}
+      {/* Save status message */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -257,7 +453,7 @@ export default function Manage() {
         className="text-center py-6"
       >
         <p className="text-sm text-gray-500">
-          🐇 Changes save automatically
+          {saving ? '💾 Saving...' : '🐇 Changes save automatically'}
         </p>
       </motion.div>
     </div>

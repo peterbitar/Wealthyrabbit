@@ -11,16 +11,47 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String?
+  phone          String?  // WhatsApp phone number (legacy)
+  telegramChatId String?  // Telegram Chat ID
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  holdings             Holding[]
+  watchlist            Watchlist[]
+  notificationSettings NotificationSettings?
+
+  @@map("users")
+}
+
+// User notification preferences
+model NotificationSettings {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  // Notification mode: calm, balanced, active
+  mode String @default("balanced")
+
+  // Delivery channels
+  inApp    Boolean @default(true)
+  telegram Boolean @default(false)
+  email    Boolean @default(true)
+
+  // Topics to track
+  news             Boolean @default(true)
+  reddit           Boolean @default(true)
+  expertOpinions   Boolean @default(false)
+  friendActivity   Boolean @default(true)
+  portfolioAlerts  Boolean @default(true)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  holdings  Holding[]
-  watchlist Watchlist[]
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("users")
+  @@map("notification_settings")
 }
 
 // Stocks the user owns

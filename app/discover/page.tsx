@@ -199,6 +199,33 @@ export default function Discover() {
     fetchTrendingStocks();
   }, []);
 
+  // Get user's holdings symbols for "My Stocks" filter
+  const userId = "cmh503gjd00008okpn9ic7cia";
+  const [userStocks, setUserStocks] = useState<string[]>([]);
+
+  useEffect(() => {
+    async function fetchUserStocks() {
+      try {
+        const response = await fetch(`/api/portfolio/holdings?userId=${userId}`);
+        const holdings = await response.json();
+        setUserStocks(holdings.map((h: any) => h.symbol));
+      } catch (error) {
+        console.error('Error fetching user stocks:', error);
+      }
+    }
+    fetchUserStocks();
+  }, []);
+
+  // Filter trending stocks
+  const filteredTrendingStocks = trendingStocks.filter((stock: any) => {
+    if (trendingFilter === "All") return true;
+    if (trendingFilter === "My Stocks") return userStocks.includes(stock.symbol);
+    if (trendingFilter === "Tech") return ["AAPL", "NVDA", "TSLA", "META", "GOOGL", "MSFT", "AMZN", "NFLX"].includes(stock.symbol);
+    if (trendingFilter === "Finance") return ["JPM", "GS", "BAC", "WFC", "C"].includes(stock.symbol);
+    if (trendingFilter === "Crypto") return ["COIN", "MSTR", "SQ"].includes(stock.symbol);
+    return true;
+  });
+
   return (
     <div className="min-h-screen p-4 space-y-6">
       {/* Header */}
@@ -239,7 +266,7 @@ export default function Discover() {
         />
 
         <div className="space-y-3">
-          {trendingStocks.map((stock, index) => (
+          {filteredTrendingStocks.map((stock, index) => (
             <motion.div
               key={stock.symbol}
               initial={{ opacity: 0, x: -10 }}

@@ -14,10 +14,13 @@
     "@prisma/client": "^6.18.0",
     "framer-motion": "^12.23.24",
     "next": "^15.0.0",
+    "node-telegram-bot-api": "^0.66.0",
     "openai": "^6.6.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "snoowrap": "^1.23.0"
+    "snoowrap": "^1.23.0",
+    "supports-color": "^10.2.2",
+    "twilio": "^5.10.3"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

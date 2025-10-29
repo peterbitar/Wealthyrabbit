@@ -82,13 +82,24 @@ export async function GET(request: Request) {
       };
     });
 
-    // Enrich watchlist with current prices
+    // Enrich watchlist with current prices and sentiment
+    const watchlistSymbols = watchlist.map(w => w.symbol);
+    const watchlistSocialData = await prisma.trendingStock.findMany({
+      where: { symbol: { in: watchlistSymbols } }
+    });
+    const watchlistSocialMap = new Map(watchlistSocialData.map(s => [s.symbol, s]));
+
     const enrichedWatchlist = watchlist.map(item => {
       const price = priceMap.get(item.symbol);
+      const social = watchlistSocialMap.get(item.symbol);
+      const dayChangePercent = price?.dayChangePercent || 0;
+      const sentiment = social?.sentiment || (dayChangePercent >= 0 ? 'positive' : 'negative');
+
       return {
         ...item,
         currentPrice: price?.currentPrice || 0,
-        dayChange: price?.dayChangePercent || 0,
+        dayChange: dayChangePercent,
+        sentiment,
       };
     });
 

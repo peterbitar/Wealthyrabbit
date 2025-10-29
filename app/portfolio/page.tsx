@@ -3,31 +3,64 @@
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import FilterChips from "@/components/FilterChips";
+import AddStockModal from "@/components/AddStockModal";
 
 export default function Portfolio() {
   const [holdingsFilter, setHoldingsFilter] = useState("All");
   const [watchlistFilter, setWatchlistFilter] = useState("All");
   const [loading, setLoading] = useState(true);
   const [portfolioData, setPortfolioData] = useState<any>(null);
+  const [showAddHolding, setShowAddHolding] = useState(false);
+  const [showAddWatchlist, setShowAddWatchlist] = useState(false);
 
   // Hardcoded test user ID (in production, get from auth)
   const userId = "cmh503gjd00008okpn9ic7cia";
 
-  useEffect(() => {
-    async function fetchPortfolio() {
-      try {
-        const response = await fetch(`/api/portfolio/summary?userId=${userId}`);
-        const data = await response.json();
-        setPortfolioData(data);
-      } catch (error) {
-        console.error('Error fetching portfolio:', error);
-      } finally {
-        setLoading(false);
-      }
+  const fetchPortfolio = async () => {
+    try {
+      const response = await fetch(`/api/portfolio/summary?userId=${userId}`);
+      const data = await response.json();
+      setPortfolioData(data);
+    } catch (error) {
+      console.error('Error fetching portfolio:', error);
+    } finally {
+      setLoading(false);
     }
+  };
 
+  useEffect(() => {
     fetchPortfolio();
   }, []);
+
+  // Delete holding
+  const deleteHolding = async (holdingId: string) => {
+    try {
+      const response = await fetch(`/api/portfolio/holdings?id=${holdingId}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        // Refresh portfolio data
+        await fetchPortfolio();
+      }
+    } catch (error) {
+      console.error('Error deleting holding:', error);
+    }
+  };
+
+  // Delete from watchlist
+  const deleteFromWatchlist = async (watchlistId: string) => {
+    try {
+      const response = await fetch(`/api/portfolio/watchlist?id=${watchlistId}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        // Refresh portfolio data
+        await fetchPortfolio();
+      }
+    } catch (error) {
+      console.error('Error removing from watchlist:', error);
+    }
+  };
 
   if (loading) {
     return (
@@ -46,6 +79,25 @@ export default function Portfolio() {
   }
 
   const { summary, holdings, watchlist } = portfolioData;
+
+  // Filter holdings based on selected filter
+  const filteredHoldings = holdings.filter((stock: any) => {
+    if (holdingsFilter === "All") return true;
+    if (holdingsFilter === "Winning") return stock.gainLossPercent > 0;
+    if (holdingsFilter === "Losing") return stock.gainLossPercent < 0;
+    if (holdingsFilter === "Tech") return ["AAPL", "NVDA", "TSLA", "META", "GOOGL", "MSFT", "AMZN", "NFLX"].includes(stock.symbol);
+    if (holdingsFilter === "Finance") return ["JPM", "GS", "BAC", "WFC", "C"].includes(stock.symbol);
+    return true;
+  });
+
+  // Filter watchlist based on selected filter
+  const filteredWatchlist = watchlist.filter((stock: any) => {
+    if (watchlistFilter === "All") return true;
+    if (watchlistFilter === "High Priority") return stock.dayChange > 2 || stock.dayChange < -2;
+    if (watchlistFilter === "Tech") return ["AAPL", "NVDA", "TSLA", "META", "GOOGL", "MSFT", "AMZN", "NFLX"].includes(stock.symbol);
+    if (watchlistFilter === "Finance") return ["JPM", "GS", "BAC", "WFC", "C"].includes(stock.symbol);
+    return true;
+  });
 
   // Generate AI insight based on portfolio performance
   const generateInsight = () => {
@@ -149,8 +201,14 @@ export default function Portfolio() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-200">Holdings</h3>
-          <button className="text-xs text-rabbit-mint-400 hover:text-rabbit-mint-300 font-medium">
-            See all →
+          <button
+            onClick={() => setShowAddHolding(true)}
+            className="flex items-center gap-1 text-xs text-rabbit-mint-400 hover:text-rabbit-mint-300 font-medium"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Stock
           </button>
         </div>
 
@@ -161,7 +219,7 @@ export default function Portfolio() {
         />
 
         <div className="space-y-3">
-          {holdings.map((stock: any, index: number) => (
+          {filteredHoldings.map((stock: any, index: number) => (
             <motion.div
               key={stock.symbol}
               initial={{ opacity: 0, x: -10 }}
@@ -170,7 +228,7 @@ export default function Portfolio() {
               className="bg-rabbit-card rounded-2xl p-4 border border-rabbit-border hover:border-rabbit-mint-500/30 transition-all"
             >
               <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-1">
                   {/* Sentiment indicator */}
                   <div
                     className={`w-2 h-2 rounded-full ${
@@ -189,20 +247,31 @@ export default function Portfolio() {
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <p className="font-semibold text-gray-100">
-                    ${stock.totalValue.toLocaleString()}
-                  </p>
-                  <p
-                    className={`text-xs ${
-                      stock.dayChange >= 0
-                        ? "text-rabbit-success"
-                        : "text-rabbit-error"
-                    }`}
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p className="font-semibold text-gray-100">
+                      ${stock.totalValue.toLocaleString()}
+                    </p>
+                    <p
+                      className={`text-xs ${
+                        stock.dayChange >= 0
+                          ? "text-rabbit-success"
+                          : "text-rabbit-error"
+                      }`}
+                    >
+                      {stock.dayChange >= 0 ? "+" : ""}
+                      {stock.dayChange.toFixed(1)}%
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => deleteHolding(stock.id)}
+                    className="p-2 hover:bg-rabbit-error/10 rounded-lg transition-colors"
+                    title="Remove from portfolio"
                   >
-                    {stock.dayChange >= 0 ? "+" : ""}
-                    {stock.dayChange.toFixed(1)}%
-                  </p>
+                    <svg className="w-4 h-4 text-gray-500 hover:text-rabbit-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
                 </div>
               </div>
 
@@ -262,8 +331,14 @@ export default function Portfolio() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-200">Watching</h3>
-          <button className="text-xs text-rabbit-mint-400 hover:text-rabbit-mint-300 font-medium">
-            See all →
+          <button
+            onClick={() => setShowAddWatchlist(true)}
+            className="flex items-center gap-1 text-xs text-rabbit-mint-400 hover:text-rabbit-mint-300 font-medium"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Stock
           </button>
         </div>
 
@@ -274,7 +349,7 @@ export default function Portfolio() {
         />
 
         <div className="space-y-2">
-          {watchlist.map((stock: any, index: number) => (
+          {filteredWatchlist.map((stock: any, index: number) => (
             <motion.div
               key={stock.symbol}
               initial={{ opacity: 0, x: -10 }}
@@ -282,7 +357,7 @@ export default function Portfolio() {
               transition={{ delay: 0.6 + index * 0.1 }}
               className="bg-rabbit-card/50 rounded-xl p-3 border border-rabbit-border/50 flex items-center justify-between"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-1">
                 <div
                   className={`w-1.5 h-1.5 rounded-full ${
                     stock.sentiment === "positive"
@@ -298,20 +373,31 @@ export default function Portfolio() {
                 </div>
               </div>
 
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-200">
-                  ${stock.currentPrice.toFixed(2)}
-                </p>
-                <p
-                  className={`text-xs ${
-                    stock.dayChange >= 0
-                      ? "text-rabbit-success"
-                      : "text-rabbit-error"
-                  }`}
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-200">
+                    ${stock.currentPrice.toFixed(2)}
+                  </p>
+                  <p
+                    className={`text-xs ${
+                      stock.dayChange >= 0
+                        ? "text-rabbit-success"
+                        : "text-rabbit-error"
+                    }`}
+                  >
+                    {stock.dayChange >= 0 ? "+" : ""}
+                    {stock.dayChange.toFixed(2)}%
+                  </p>
+                </div>
+                <button
+                  onClick={() => deleteFromWatchlist(stock.id)}
+                  className="p-2 hover:bg-rabbit-error/10 rounded-lg transition-colors"
+                  title="Remove from watchlist"
                 >
-                  {stock.dayChange >= 0 ? "+" : ""}
-                  {stock.dayChange.toFixed(2)}%
-                </p>
+                  <svg className="w-4 h-4 text-gray-500 hover:text-rabbit-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
             </motion.div>
           ))}
@@ -329,6 +415,22 @@ export default function Portfolio() {
           🐇 Markets are quiet — your portfolio's resting too
         </p>
       </motion.div>
+
+      {/* Modals */}
+      <AddStockModal
+        isOpen={showAddHolding}
+        onClose={() => setShowAddHolding(false)}
+        onAdd={fetchPortfolio}
+        userId={userId}
+        mode="holding"
+      />
+      <AddStockModal
+        isOpen={showAddWatchlist}
+        onClose={() => setShowAddWatchlist(false)}
+        onAdd={fetchPortfolio}
+        userId={userId}
+        mode="watchlist"
+      />
     </div>
   );
 }
