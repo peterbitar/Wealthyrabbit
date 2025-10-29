@@ -244,8 +244,10 @@ async function detectAbnormalEvents(symbol: string, stockData: StockData): Promi
 
 /**
  * Check all user holdings for abnormal events
+ * @param userId - User ID to check
+ * @param sendQuietMessage - If true, send a message even when no events found (for manual checks)
  */
-export async function checkAbnormalEventsForUser(userId: string): Promise<void> {
+export async function checkAbnormalEventsForUser(userId: string, sendQuietMessage: boolean = false): Promise<void> {
   try {
     console.log(`🔍 Checking abnormal events for user ${userId}`);
 
@@ -322,6 +324,12 @@ export async function checkAbnormalEventsForUser(userId: string): Promise<void> 
 
     if (allEvents.length === 0) {
       console.log(`✅ No abnormal events detected for user ${userId}`);
+
+      // If this is a manual check, send a "markets are quiet" message
+      if (sendQuietMessage) {
+        const quietMessage = `📊 *Event Check Complete*\n\nMarkets look pretty normal right now — no unusual moves in your holdings.\n\nI'm watching for:\n• Big price swings (2× normal volatility)\n• News surges\n• Sentiment flips\n• Analyst activity\n\nYou'll hear from me when something interesting happens. 🐇`;
+        await sendTelegramMessage(user.telegramChatId, quietMessage);
+      }
     } else {
       console.log(`✅ Processed ${allEvents.length} events for user ${userId}`);
     }
