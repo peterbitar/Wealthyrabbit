@@ -9,6 +9,58 @@ import { prisma } from './prisma';
 import { sendTelegramMessage } from './telegram';
 import OpenAI from 'openai';
 
+// Track sent events to prevent duplicates (userId -> Set of event signatures)
+const sentEvents = new Map<string, Set<string>>();
+
+// Generate signature for an event to detect duplicates
+function generateEventSignature(symbol: string, eventType: string, changePercent: number): string {
+  // Round to 1 decimal to allow for slight variations but catch duplicates
+  const roundedChange = Math.round(changePercent * 10) / 10;
+  return `${symbol}:${eventType}:${roundedChange}`;
+}
+
+// Check if this is a new event or has significant new info
+function isNewOrUpdatedEvent(userId: string, signature: string): boolean {
+  const userSentEvents = sentEvents.get(userId) || new Set();
+
+  if (userSentEvents.has(signature)) {
+    return false; // Already sent this exact event
+  }
+
+  return true; // New event
+}
+
+// Mark event as sent
+function markEventAsSent(userId: string, signature: string): void {
+  let userSentEvents = sentEvents.get(userId);
+  if (!userSentEvents) {
+    userSentEvents = new Set();
+    sentEvents.set(userId, userSentEvents);
+  }
+
+  userSentEvents.add(signature);
+
+  // Keep only last 50 events per user to prevent memory bloat
+  if (userSentEvents.size > 50) {
+    const array = Array.from(userSentEvents);
+    userSentEvents.clear();
+    array.slice(-50).forEach(sig => userSentEvents.add(sig));
+  }
+}
+
+// Clear old event signatures (older than 24 hours)
+export function clearOldEventSignatures(): void {
+  // Simple approach: clear all every 24 hours to allow re-alerting on persistent issues
+  const now = Date.now();
+  const lastClear = (globalThis as any).__lastEventClear || 0;
+
+  if (now - lastClear > 24 * 60 * 60 * 1000) {
+    sentEvents.clear();
+    (globalThis as any).__lastEventClear = now;
+    console.log('🧹 Cleared old event signatures (24h refresh)');
+  }
+}
+
 interface StockData {
   symbol: string;
   currentPrice: number;
@@ -381,14 +433,40 @@ export async function checkAbnormalEventsForUser(userId: string, sendQuietMessag
       }
     }
 
+    // Clear old signatures periodically
+    clearOldEventSignatures();
+
+    // Filter out duplicate events
+    const newEvents = allEvents.filter(event => {
+      // Get the stock data to extract change percent
+      const holding = user.holdings.find(h => h.symbol === event.symbol);
+      if (!holding) return false;
+
+      // Generate signature for this event
+      const signature = generateEventSignature(event.symbol, event.type, 0); // We'll use a simplified signature
+
+      // Check if it's new or updated
+      if (!isNewOrUpdatedEvent(userId, signature)) {
+        console.log(`⏭️  Skipping duplicate event: ${event.symbol} - ${event.type}`);
+        return false;
+      }
+
+      return true;
+    });
+
     // Send notifications for high-severity events immediately, batch medium ones
-    const highEvents = allEvents.filter(e => e.severity === 'high');
-    const mediumEvents = allEvents.filter(e => e.severity === 'medium');
+    const highEvents = newEvents.filter(e => e.severity === 'high');
+    const mediumEvents = newEvents.filter(e => e.severity === 'medium');
 
     // Send high-severity events individually
     for (const event of highEvents) {
       console.log(`🚨 High-severity event: ${event.symbol} - ${event.type}`);
       await sendTelegramMessage(user.telegramChatId, event.message);
+
+      // Mark as sent
+      const signature = generateEventSignature(event.symbol, event.type, 0);
+      markEventAsSent(userId, signature);
+
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
@@ -397,10 +475,20 @@ export async function checkAbnormalEventsForUser(userId: string, sendQuietMessag
       if (mediumEvents.length === 1) {
         console.log(`📢 Medium event: ${mediumEvents[0].symbol}`);
         await sendTelegramMessage(user.telegramChatId, mediumEvents[0].message);
+
+        // Mark as sent
+        const signature = generateEventSignature(mediumEvents[0].symbol, mediumEvents[0].type, 0);
+        markEventAsSent(userId, signature);
       } else {
         console.log(`📢 ${mediumEvents.length} medium events detected`);
         const batchMessage = mediumEvents.map(e => e.message).join('\n\n');
         await sendTelegramMessage(user.telegramChatId, batchMessage);
+
+        // Mark all as sent
+        mediumEvents.forEach(event => {
+          const signature = generateEventSignature(event.symbol, event.type, 0);
+          markEventAsSent(userId, signature);
+        });
       }
     }
 

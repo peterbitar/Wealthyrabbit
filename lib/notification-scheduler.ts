@@ -15,7 +15,59 @@ interface UserNotificationState {
 }
 
 const userStates = new Map<string, UserNotificationState>();
-const CHECK_INTERVAL = 15 * 60 * 1000; // 15 minutes - check for abnormal events
+const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes - check for abnormal events
+
+// Track sent events to prevent duplicates (userId -> Set of event signatures)
+const sentEvents = new Map<string, Set<string>>();
+
+// Generate signature for an event to detect duplicates
+function generateEventSignature(symbol: string, eventType: string, changePercent: number): string {
+  // Round to 1 decimal to allow for slight variations but catch duplicates
+  const roundedChange = Math.round(changePercent * 10) / 10;
+  return `${symbol}:${eventType}:${roundedChange}`;
+}
+
+// Check if this is a new event or has significant new info
+function isNewOrUpdatedEvent(userId: string, signature: string): boolean {
+  const userSentEvents = sentEvents.get(userId) || new Set();
+
+  if (userSentEvents.has(signature)) {
+    return false; // Already sent this exact event
+  }
+
+  return true; // New event
+}
+
+// Mark event as sent
+function markEventAsSent(userId: string, signature: string): void {
+  let userSentEvents = sentEvents.get(userId);
+  if (!userSentEvents) {
+    userSentEvents = new Set();
+    sentEvents.set(userId, userSentEvents);
+  }
+
+  userSentEvents.add(signature);
+
+  // Keep only last 50 events per user to prevent memory bloat
+  if (userSentEvents.size > 50) {
+    const array = Array.from(userSentEvents);
+    userSentEvents.clear();
+    array.slice(-50).forEach(sig => userSentEvents.add(sig));
+  }
+}
+
+// Clear old event signatures (older than 24 hours)
+function clearOldEventSignatures(): void {
+  // Simple approach: clear all every 24 hours to allow re-alerting on persistent issues
+  const now = Date.now();
+  const lastClear = (globalThis as any).__lastEventClear || 0;
+
+  if (now - lastClear > 24 * 60 * 60 * 1000) {
+    sentEvents.clear();
+    (globalThis as any).__lastEventClear = now;
+    console.log('🧹 Cleared old event signatures (24h refresh)');
+  }
+}
 
 async function fetchStockPrice(symbol: string): Promise<{ price: number; changePercent: number } | null> {
   try {
