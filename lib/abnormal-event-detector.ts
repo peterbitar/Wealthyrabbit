@@ -7,6 +7,7 @@
 
 import { prisma } from './prisma';
 import { sendTelegramMessage } from './telegram';
+import OpenAI from 'openai';
 
 interface StockData {
   symbol: string;
@@ -44,6 +45,106 @@ interface AbnormalEvent {
   type: 'price' | 'news' | 'reddit' | 'analyst' | 'sector';
   severity: 'medium' | 'high';
   message: string;
+}
+
+/**
+ * Generate conversational, well-researched message using LLM
+ */
+async function generateConversationalMessage(
+  symbol: string,
+  eventType: string,
+  stockData: StockData,
+  newsData: NewsData,
+  volatility: number
+): Promise<string> {
+  try {
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
+    const now = new Date();
+    const dateStr = now.toLocaleString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    // Build comprehensive context
+    const context = {
+      symbol,
+      currentPrice: stockData.currentPrice,
+      dayChangePercent: stockData.dayChangePercent,
+      intradayChangePercent: stockData.intradayChangePercent,
+      gapPercent: stockData.gapPercent,
+      volatility20Day: volatility,
+      volatilityMultiple: Math.abs(stockData.dayChangePercent) / volatility,
+      newsCount6h: newsData.count6h,
+      newsAvg7day: newsData.avg7day,
+      headlines: newsData.headlines,
+      sentimentCurrent: newsData.sentimentCurrent,
+      sentimentPrevious: newsData.sentimentPrevious,
+      sentimentChange: newsData.sentimentCurrent - newsData.sentimentPrevious,
+      dateTime: dateStr,
+      eventType,
+    };
+
+    const prompt = `You are a well-researched friend telling someone about an interesting stock market event. Be conversational, insightful, and vary your format - don't use the same structure every time.
+
+Context:
+- Stock: ${context.symbol}
+- Current Price: $${context.currentPrice.toFixed(2)}
+- Day Change: ${context.dayChangePercent > 0 ? '+' : ''}${context.dayChangePercent.toFixed(1)}%
+- 20-Day Volatility: ${context.volatility20Day.toFixed(1)}%
+- Volatility Multiple: ${context.volatilityMultiple.toFixed(1)}× normal
+- Event Type: ${eventType}
+- Date/Time: ${context.dateTime}
+
+News Context:
+- Articles (last 6h): ${context.newsCount6h}
+- Average (7-day): ${context.newsAvg7day.toFixed(1)} per 6h
+- Headlines: ${context.headlines.map(h => h.headline).join('; ')}
+- Sentiment: ${context.sentimentCurrent.toFixed(0)}/100 (was ${context.sentimentPrevious.toFixed(0)}/100)
+
+Write a conversational message about this event as if you're a well-informed friend who:
+1. Researched everything thoroughly (news, sentiment, price action)
+2. Explains what happened and why it matters
+3. Provides theories about WHY this happened
+4. Mentions specific sources (the actual news headlines, sentiment data)
+5. Is conversational and varies the format/structure
+6. Ends by offering to answer questions about what they're seeing (mention they can ask about Reddit sentiment, market news, or expert opinions)
+
+Keep it focused on THIS stock only - don't mix up different stocks.
+Use markdown formatting (* for bold).
+Keep it concise but complete (around 150-200 words).
+Add 🐇 at the very end.
+
+Be natural and conversational - avoid rigid templates. Sometimes start with the news, sometimes with the price move, sometimes with a theory. Vary it.`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [{
+        role: 'user',
+        content: prompt
+      }],
+      max_tokens: 500,
+      temperature: 0.8, // Higher temperature for more variety
+    });
+
+    const messageText = completion.choices[0]?.message?.content;
+    if (messageText) {
+      return messageText;
+    }
+
+    // Fallback if LLM fails
+    return `Hey, ${symbol} moved ${Math.abs(stockData.dayChangePercent).toFixed(1)}% — that's ${(Math.abs(stockData.dayChangePercent) / volatility).toFixed(1)}× its usual swing. ${newsData.headlines.length > 0 ? newsData.headlines[0].headline : 'Checking what triggered this...'} 🐇`;
+  } catch (error) {
+    console.error('Error generating conversational message:', error);
+    // Fallback message
+    return `Hey, ${symbol} moved ${Math.abs(stockData.dayChangePercent).toFixed(1)}% — that's ${(Math.abs(stockData.dayChangePercent) / volatility).toFixed(1)}× its usual swing. ${newsData.headlines.length > 0 ? newsData.headlines[0].headline : 'Something interesting happened.'} 🐇`;
+  }
 }
 
 /**
@@ -157,84 +258,13 @@ async function detectAbnormalEvents(symbol: string, stockData: StockData): Promi
 
   // Price spike relative to volatility
   if (Math.abs(stockData.dayChangePercent) >= 2 * volatility && newsData.count6h > 0) {
-    const direction = stockData.dayChangePercent > 0 ? 'jumped' : 'dropped';
-    const multiple = Math.abs(stockData.dayChangePercent) / volatility;
-    const now = new Date();
-    const timeStr = now.toLocaleString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-
-    let message = `🚨 *${symbol} ${direction.toUpperCase()} ${Math.abs(stockData.dayChangePercent).toFixed(1)}%*\n`;
-    message += `${timeStr}\n\n`;
-    message += `This is ${multiple.toFixed(1)}× its usual daily swing (20-day volatility: ${volatility.toFixed(1)}%).\n\n`;
-
-    // Add detailed news context
-    if (newsData.headlines.length > 0) {
-      message += `*What triggered it:*\n`;
-
-      const keyEvents = ['earnings', 'merger', 'lawsuit', 'CEO', 'SEC', 'product launch', 'acquisition', 'FDA', 'deal', 'guidance'];
-      const hasKeyEvent = newsData.headlines.some(h =>
-        keyEvents.some(keyword => h.headline.toLowerCase().includes(keyword))
-      );
-
-      // Show multiple headlines for better context
-      newsData.headlines.slice(0, 2).forEach((h, idx) => {
-        message += `• ${h.headline}\n`;
-      });
-      message += `\n`;
-
-      // Analyze sentiment shift
-      const sentimentShift = newsData.sentimentCurrent - newsData.sentimentPrevious;
-      if (Math.abs(sentimentShift) > 20) {
-        message += `*Sentiment shift:* News turned ${sentimentShift > 0 ? 'more positive' : 'more negative'} (${Math.abs(sentimentShift).toFixed(0)} point swing).\n\n`;
-      }
-
-      // Build theory
-      message += `*Why this might be happening:*\n`;
-
-      if (hasKeyEvent) {
-        const earningsRelated = newsData.headlines.some(h =>
-          h.headline.toLowerCase().includes('earnings') ||
-          h.headline.toLowerCase().includes('revenue') ||
-          h.headline.toLowerCase().includes('guidance')
-        );
-        const regulatoryRelated = newsData.headlines.some(h =>
-          h.headline.toLowerCase().includes('sec') ||
-          h.headline.toLowerCase().includes('fda') ||
-          h.headline.toLowerCase().includes('lawsuit')
-        );
-        const dealRelated = newsData.headlines.some(h =>
-          h.headline.toLowerCase().includes('merger') ||
-          h.headline.toLowerCase().includes('acquisition') ||
-          h.headline.toLowerCase().includes('deal')
-        );
-
-        if (earningsRelated) {
-          message += `• Earnings/guidance event — market reassessing future expectations\n`;
-          message += `• Often see follow-through moves in next 1-2 days as analysts adjust\n`;
-        } else if (regulatoryRelated) {
-          message += `• Regulatory/legal development — these can have lasting impacts\n`;
-          message += `• Watch for official statements and analyst commentary\n`;
-        } else if (dealRelated) {
-          message += `• M&A/deal activity — market pricing in strategic shift\n`;
-          message += `• Stock typically volatile until deal terms clarify\n`;
-        } else {
-          message += `• News-driven move — market digesting unexpected information\n`;
-          message += `• Volume and follow-through tomorrow will show if it's sustainable\n`;
-        }
-      } else {
-        message += `• High news volume (${newsData.count6h} articles vs avg ${newsData.avg7day.toFixed(1)}) creating attention\n`;
-        message += `• Could be algorithmic/momentum trading responding to headlines\n`;
-        message += `• Watch for fundamental substance behind the buzz\n`;
-      }
-    }
-
-    message += `\n🐇`;
+    const message = await generateConversationalMessage(
+      symbol,
+      'significant price move',
+      stockData,
+      newsData,
+      volatility
+    );
 
     events.push({
       symbol,
@@ -246,44 +276,13 @@ async function detectAbnormalEvents(symbol: string, stockData: StockData): Promi
 
   // Large intraday move
   if (Math.abs(stockData.intradayChangePercent) >= 5) {
-    const direction = stockData.intradayChangePercent > 0 ? 'surged' : 'tanked';
-    const now = new Date();
-    const timeStr = now.toLocaleString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-    const dateStr = now.toLocaleString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric'
-    });
-
-    let message = `⚡ *INTRADAY MOVE: ${symbol} ${direction.toUpperCase()} ${Math.abs(stockData.intradayChangePercent).toFixed(1)}%*\n`;
-    message += `${dateStr} at ${timeStr}\n\n`;
-    message += `This is an unusually sharp mid-day move.\n\n`;
-
-    // Add context about what typically causes intraday spikes
-    message += `*Typical causes:*\n`;
-    message += `• Breaking news that just hit (check latest headlines)\n`;
-    message += `• Large institutional trade or block order\n`;
-    message += `• Short squeeze if heavily shorted\n`;
-    message += `• Analyst upgrade/downgrade during market hours\n\n`;
-
-    if (newsData.headlines.length > 0) {
-      message += `*Latest news:*\n`;
-      newsData.headlines.slice(0, 2).forEach(h => {
-        message += `• ${h.headline}\n`;
-      });
-      message += `\n`;
-    }
-
-    message += `*Watch for:*\n`;
-    message += `• Volume confirmation (is it sustained or just a spike?)\n`;
-    message += `• End-of-day close relative to this move\n`;
-    message += `• Any official company announcements\n\n`;
-
-    message += `🐇`;
+    const message = await generateConversationalMessage(
+      symbol,
+      'sharp intraday move',
+      stockData,
+      newsData,
+      volatility
+    );
 
     events.push({
       symbol,
@@ -295,38 +294,13 @@ async function detectAbnormalEvents(symbol: string, stockData: StockData): Promi
 
   // Gap open
   if (Math.abs(stockData.gapPercent) >= 4) {
-    const direction = stockData.gapPercent > 0 ? 'gapped up' : 'gapped down';
-    const now = new Date();
-    const dateStr = now.toLocaleString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric'
-    });
-
-    let message = `🌅 *OVERNIGHT GAP: ${symbol} ${direction.toUpperCase()} ${Math.abs(stockData.gapPercent).toFixed(1)}%*\n`;
-    message += `${dateStr} premarket\n\n`;
-    message += `Stock opened significantly away from yesterday's close — something happened overnight.\n\n`;
-
-    message += `*What causes overnight gaps:*\n`;
-    message += `• Earnings released after hours or before market open\n`;
-    message += `• Major news announced outside trading hours\n`;
-    message += `• International markets reacting (Asia/Europe sessions)\n`;
-    message += `• Analyst calls or institutional actions announced overnight\n\n`;
-
-    if (newsData.headlines.length > 0) {
-      message += `*Recent headlines:*\n`;
-      newsData.headlines.slice(0, 2).forEach(h => {
-        message += `• ${h.headline}\n`;
-      });
-      message += `\n`;
-    }
-
-    message += `*Trading implications:*\n`;
-    message += `• Large gaps often get "filled" partially during the session\n`;
-    message += `• First 30 minutes will show if buyers/sellers defend the gap\n`;
-    message += `• If gap holds all day, it signals strong conviction\n\n`;
-
-    message += `🐇`;
+    const message = await generateConversationalMessage(
+      symbol,
+      'overnight gap open',
+      stockData,
+      newsData,
+      volatility
+    );
 
     events.push({
       symbol,
@@ -339,47 +313,13 @@ async function detectAbnormalEvents(symbol: string, stockData: StockData): Promi
   // 2. News Surge Detection
   if (newsData.count6h >= 2 * newsData.avg7day && newsData.count6h >= 2) {
     const multiple = newsData.count6h / Math.max(newsData.avg7day, 0.5);
-    const now = new Date();
-    const dateStr = now.toLocaleString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric'
-    });
-    const timeStr = now.toLocaleString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-
-    let message = `📰 *NEWS SURGE: ${symbol}*\n`;
-    message += `${dateStr} at ${timeStr}\n\n`;
-    message += `${newsData.count6h} articles in the last 6 hours — that's ${multiple.toFixed(1)}× the normal rate (avg: ${newsData.avg7day.toFixed(1)} per 6h).\n\n`;
-
-    if (newsData.headlines.length > 0) {
-      message += `*What's being reported:*\n`;
-      newsData.headlines.forEach(h => {
-        message += `• ${h.headline}\n`;
-      });
-      message += `\n`;
-    }
-
-    message += `*Why this matters:*\n`;
-    message += `• Media attention often precedes or follows price moves\n`;
-    message += `• ${newsData.count6h >= 5 ? 'This level of coverage is unusual — something significant happening' : 'Increased attention from financial press'}\n`;
-    message += `• Retail traders often react to headlines, creating momentum\n\n`;
-
-    message += `*Context:*\n`;
-    if (multiple >= 4) {
-      message += `• This is an extreme news spike — rare event\n`;
-      message += `• Usually triggered by: earnings, M&A, regulatory action, or crisis\n`;
-      message += `• Expect high volatility as market digests information\n`;
-    } else {
-      message += `• Moderate increase in coverage\n`;
-      message += `• Could be developing story or quarterly event\n`;
-      message += `• Monitor for price action confirmation\n`;
-    }
-
-    message += `\n🐇`;
+    const message = await generateConversationalMessage(
+      symbol,
+      'news surge',
+      stockData,
+      newsData,
+      volatility
+    );
 
     events.push({
       symbol,
@@ -392,45 +332,13 @@ async function detectAbnormalEvents(symbol: string, stockData: StockData): Promi
   // Sentiment flip
   const sentimentChange = Math.abs(newsData.sentimentCurrent - newsData.sentimentPrevious);
   if (sentimentChange >= 30 && newsData.count6h >= 2) {
-    const direction = newsData.sentimentCurrent > newsData.sentimentPrevious ? 'turned bullish' : 'turned bearish';
-    const now = new Date();
-    const dateStr = now.toLocaleString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric'
-    });
-
-    let message = `💭 *SENTIMENT SHIFT: ${symbol}*\n`;
-    message += `${dateStr}\n\n`;
-    message += `News sentiment ${direction} — ${sentimentChange.toFixed(0)} point swing.\n\n`;
-
-    message += `*The numbers:*\n`;
-    message += `• Recent sentiment: ${newsData.sentimentCurrent.toFixed(0)}/100 (${newsData.sentimentCurrent > 50 ? 'positive' : newsData.sentimentCurrent < 50 ? 'negative' : 'neutral'})\n`;
-    message += `• Previous sentiment: ${newsData.sentimentPrevious.toFixed(0)}/100 (${newsData.sentimentPrevious > 50 ? 'positive' : newsData.sentimentPrevious < 50 ? 'negative' : 'neutral'})\n`;
-    message += `• Change: ${newsData.sentimentCurrent > newsData.sentimentPrevious ? '+' : ''}${(newsData.sentimentCurrent - newsData.sentimentPrevious).toFixed(0)} points\n\n`;
-
-    if (newsData.headlines.length > 0) {
-      message += `*Recent headlines driving sentiment:*\n`;
-      newsData.headlines.slice(0, 2).forEach(h => {
-        const sentimentLabel = h.sentiment > 0.2 ? '📈 Positive' : h.sentiment < -0.2 ? '📉 Negative' : '➡️ Neutral';
-        message += `${sentimentLabel}: ${h.headline}\n`;
-      });
-      message += `\n`;
-    }
-
-    message += `*What sentiment shifts reveal:*\n`;
-    if (newsData.sentimentCurrent > newsData.sentimentPrevious) {
-      message += `• Narrative changing from cautious to optimistic\n`;
-      message += `• Could signal bottom forming or positive catalyst emerging\n`;
-      message += `• Watch if this translates to actual buying pressure\n`;
-    } else {
-      message += `• Tone shifting from positive to concerning\n`;
-      message += `• May indicate emerging risks or disappointment\n`;
-      message += `• Often leads price action by 1-2 days\n`;
-    }
-
-    message += `\n*Remember:* Sentiment is a leading indicator but not always accurate. Cross-reference with fundamentals.\n\n`;
-    message += `🐇`;
+    const message = await generateConversationalMessage(
+      symbol,
+      'sentiment shift',
+      stockData,
+      newsData,
+      volatility
+    );
 
     events.push({
       symbol,
