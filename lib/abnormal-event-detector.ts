@@ -91,7 +91,7 @@ async function generateConversationalMessage(
       eventType,
     };
 
-    const prompt = `You are a well-researched friend telling someone about an interesting stock market event. Be conversational, insightful, and vary your format - don't use the same structure every time.
+    const prompt = `You are a well-informed friend casually telling someone about an interesting stock market event. Write ONE flowing paragraph that sounds natural and conversational - like you're texting a friend.
 
 Context:
 - Stock: ${context.symbol}
@@ -108,20 +108,23 @@ News Context:
 - Headlines: ${context.headlines.map(h => h.headline).join('; ')}
 - Sentiment: ${context.sentimentCurrent.toFixed(0)}/100 (was ${context.sentimentPrevious.toFixed(0)}/100)
 
-Write a conversational message about this event as if you're a well-informed friend who:
-1. Researched everything thoroughly (news, sentiment, price action)
-2. Explains what happened and why it matters
-3. Provides theories about WHY this happened
-4. Mentions specific sources (the actual news headlines, sentiment data)
-5. Is conversational and varies the format/structure
-6. Ends by offering to answer questions about what they're seeing (mention they can ask about Reddit sentiment, market news, or expert opinions)
+Write ONE continuous paragraph (no sections, no bullet points) that:
+- Flows naturally like you're explaining it in one breath
+- Includes the key facts (what happened, the numbers, why it matters)
+- Mentions the actual news headlines if relevant
+- Explains your theory on why this is happening
+- Ends casually by mentioning they can ask you about Reddit/news/expert takes
 
-Keep it focused on THIS stock only - don't mix up different stocks.
-Use markdown formatting (* for bold).
-Keep it concise but complete (around 150-200 words).
-Add 🐇 at the very end.
+Rules:
+- ONE paragraph only - make the text continuous and flowing
+- NO "Hey" or greetings (get straight to the point)
+- NO sections, headers, or bullet points
+- Keep it short (80-120 words max)
+- Use *bold* only for the stock symbol at the start
+- End with: "Want me to dig into the Reddit chatter, news, or what experts are saying? 🐇"
 
-Be natural and conversational - avoid rigid templates. Sometimes start with the news, sometimes with the price move, sometimes with a theory. Vary it.`;
+Be conversational but don't use greetings. Start directly with the info, like: "*TSLA* just dropped 4.2% which is..."`;
+
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
@@ -129,8 +132,8 @@ Be natural and conversational - avoid rigid templates. Sometimes start with the 
         role: 'user',
         content: prompt
       }],
-      max_tokens: 500,
-      temperature: 0.8, // Higher temperature for more variety
+      max_tokens: 300,
+      temperature: 0.7,
     });
 
     const messageText = completion.choices[0]?.message?.content;
@@ -139,11 +142,11 @@ Be natural and conversational - avoid rigid templates. Sometimes start with the 
     }
 
     // Fallback if LLM fails
-    return `Hey, ${symbol} moved ${Math.abs(stockData.dayChangePercent).toFixed(1)}% — that's ${(Math.abs(stockData.dayChangePercent) / volatility).toFixed(1)}× its usual swing. ${newsData.headlines.length > 0 ? newsData.headlines[0].headline : 'Checking what triggered this...'} 🐇`;
+    return `*${symbol}* moved ${Math.abs(stockData.dayChangePercent).toFixed(1)}% — that's ${(Math.abs(stockData.dayChangePercent) / volatility).toFixed(1)}× its usual swing. ${newsData.headlines.length > 0 ? newsData.headlines[0].headline : 'Checking what triggered this...'} Want me to dig into the Reddit chatter, news, or what experts are saying? 🐇`;
   } catch (error) {
     console.error('Error generating conversational message:', error);
     // Fallback message
-    return `Hey, ${symbol} moved ${Math.abs(stockData.dayChangePercent).toFixed(1)}% — that's ${(Math.abs(stockData.dayChangePercent) / volatility).toFixed(1)}× its usual swing. ${newsData.headlines.length > 0 ? newsData.headlines[0].headline : 'Something interesting happened.'} 🐇`;
+    return `*${symbol}* moved ${Math.abs(stockData.dayChangePercent).toFixed(1)}% — that's ${(Math.abs(stockData.dayChangePercent) / volatility).toFixed(1)}× its usual swing. ${newsData.headlines.length > 0 ? newsData.headlines[0].headline : 'Something interesting happened.'} Want me to dig into the Reddit chatter, news, or what experts are saying? 🐇`;
   }
 }
 
