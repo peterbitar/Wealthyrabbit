@@ -1,4 +1,5 @@
 import TelegramBot from 'node-telegram-bot-api';
+import { lastEventContext } from './telegram-bot';
 
 const botToken = process.env.TELEGRAM_BOT_TOKEN;
 
@@ -44,6 +45,17 @@ export async function sendTelegramMessage(
     await bot.sendMessage(chatId, message, {
       parse_mode: 'Markdown',
     });
+
+    // Extract stock symbol from message (format: *SYMBOL* ...)
+    const symbolMatch = message.match(/\*([A-Z]+)\*/);
+    if (symbolMatch && symbolMatch[1]) {
+      const symbol = symbolMatch[1];
+      lastEventContext.set(chatId, {
+        symbol,
+        timestamp: Date.now(),
+      });
+      console.log(`📝 Stored event context for ${chatId}: ${symbol}`);
+    }
 
     return { success: true };
   } catch (error: any) {

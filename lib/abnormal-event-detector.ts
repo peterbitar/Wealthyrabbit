@@ -259,94 +259,59 @@ async function detectAbnormalEvents(symbol: string, stockData: StockData): Promi
   const volatility = await calculate20DayVolatility(symbol);
   const newsData = await analyzeNews(symbol);
 
+  // Collect all triggered conditions
+  const triggeredConditions: string[] = [];
+
   // Price spike relative to volatility
   if (Math.abs(stockData.dayChangePercent) >= 2 * volatility && newsData.count6h > 0) {
-    const message = await generateConversationalMessage(
-      symbol,
-      'significant price move',
-      stockData,
-      newsData,
-      volatility
-    );
-
-    events.push({
-      symbol,
-      type: 'price',
-      severity: Math.abs(stockData.dayChangePercent) >= 5 ? 'high' : 'medium',
-      message,
-    });
+    triggeredConditions.push('significant price move');
   }
 
   // Large intraday move
   if (Math.abs(stockData.intradayChangePercent) >= 5) {
-    const message = await generateConversationalMessage(
-      symbol,
-      'sharp intraday move',
-      stockData,
-      newsData,
-      volatility
-    );
-
-    events.push({
-      symbol,
-      type: 'price',
-      severity: 'high',
-      message,
-    });
+    triggeredConditions.push('sharp intraday move');
   }
 
   // Gap open
   if (Math.abs(stockData.gapPercent) >= 4) {
-    const message = await generateConversationalMessage(
-      symbol,
-      'overnight gap open',
-      stockData,
-      newsData,
-      volatility
-    );
-
-    events.push({
-      symbol,
-      type: 'price',
-      severity: 'high',
-      message,
-    });
+    triggeredConditions.push('overnight gap open');
   }
 
-  // 2. News Surge Detection
+  // News Surge Detection
   if (newsData.count6h >= 2 * newsData.avg7day && newsData.count6h >= 2) {
-    const multiple = newsData.count6h / Math.max(newsData.avg7day, 0.5);
-    const message = await generateConversationalMessage(
-      symbol,
-      'news surge',
-      stockData,
-      newsData,
-      volatility
-    );
-
-    events.push({
-      symbol,
-      type: 'news',
-      severity: multiple >= 4 ? 'high' : 'medium',
-      message,
-    });
+    triggeredConditions.push('news surge');
   }
 
   // Sentiment flip
   const sentimentChange = Math.abs(newsData.sentimentCurrent - newsData.sentimentPrevious);
   if (sentimentChange >= 30 && newsData.count6h >= 2) {
+    triggeredConditions.push('sentiment shift');
+  }
+
+  // Only generate ONE message if any conditions triggered
+  if (triggeredConditions.length > 0) {
+    // Combine all event types into the description
+    const eventType = triggeredConditions.join(' + ');
+
     const message = await generateConversationalMessage(
       symbol,
-      'sentiment shift',
+      eventType,
       stockData,
       newsData,
       volatility
     );
 
+    // Determine severity (high if any high-severity condition)
+    const hasHighSeverity =
+      Math.abs(stockData.dayChangePercent) >= 5 ||
+      Math.abs(stockData.intradayChangePercent) >= 5 ||
+      Math.abs(stockData.gapPercent) >= 4 ||
+      (newsData.count6h >= 4 * newsData.avg7day);
+
     events.push({
       symbol,
-      type: 'news',
-      severity: 'medium',
+      type: 'price',
+      severity: hasHighSeverity ? 'high' : 'medium',
       message,
     });
   }

@@ -10,6 +10,12 @@ const openai = new OpenAI({
 let bot: TelegramBot | null = null;
 let isPolling = false;
 
+// Conversation history store (chatId -> last 10 messages)
+const conversationHistory = new Map<string, Array<{ role: 'user' | 'assistant', content: string }>>();
+
+// Store last event context per user (for answering follow-up questions)
+export const lastEventContext = new Map<string, { symbol: string; timestamp: number }>();
+
 // Helper function to fetch stock price
 async function fetchStockPrice(symbol: string): Promise<{ price: number; changePercent: number } | null> {
   try {
@@ -168,13 +174,14 @@ async function handleConversation(chatId: string, message: string) {
       `- ${p.symbol}: "${p.title}" (${p.score} upvotes)`
     ).join('\n');
 
-    // Call OpenAI
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: `You are a calm, knowledgeable market advisor helping a user understand their portfolio and the markets. You speak like a well-read friend who spent the morning on Bloomberg, Reddit, and Twitter. You're informed, gentle, and human. Never panic, never shout. You know what's important and skip what's not.
+    // Get or initialize conversation history
+    let history = conversationHistory.get(chatId) || [];
+
+    // Check if user is asking about the last event
+    const lastEvent = lastEventContext.get(chatId);
+    const isFollowUpQuestion = lastEvent && (Date.now() - lastEvent.timestamp < 10 * 60 * 1000); // Within 10 minutes
+
+    let systemMessage = `You are a calm, knowledgeable market advisor helping a user understand their portfolio and the markets. You speak like a well-read friend who spent the morning on Bloomberg, Reddit, and Twitter. You're informed, gentle, and human. Never panic, never shout. You know what's important and skip what's not.
 
 Your tone:
 - Conversational and friendly ("Hey", "Looks like", "Worth noting")
@@ -189,21 +196,42 @@ Recent market news:
 ${newsContext}
 
 Reddit buzz (r/wallstreetbets):
-${redditContext}
+${redditContext}`;
 
-Answer the user's question using this context. Keep it conversational and calm.`
-        },
-        {
-          role: 'user',
-          content: message,
-        },
-      ],
+    if (isFollowUpQuestion) {
+      systemMessage += `\n\nIMPORTANT: You just sent an alert about ${lastEvent.symbol}. The user is likely asking a follow-up question about that stock. Answer in the context of ${lastEvent.symbol}.`;
+    }
+
+    systemMessage += `\n\nAnswer the user's question using this context. Keep it conversational and calm.`;
+
+    // Build messages array with history
+    const messages: Array<{ role: 'system' | 'user' | 'assistant', content: string }> = [
+      { role: 'system', content: systemMessage },
+      ...history.slice(-6), // Last 3 exchanges (6 messages)
+      { role: 'user', content: message },
+    ];
+
+    // Call OpenAI
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages,
       temperature: 0.7,
       max_tokens: 500,
     });
 
     const response = completion.choices[0]?.message?.content ||
       "Sorry, I couldn't process that right now. Mind trying again?";
+
+    // Update conversation history
+    history.push({ role: 'user', content: message });
+    history.push({ role: 'assistant', content: response });
+
+    // Keep only last 10 messages (5 exchanges)
+    if (history.length > 10) {
+      history = history.slice(-10);
+    }
+
+    conversationHistory.set(chatId, history);
 
     await bot?.sendMessage(chatId, response);
 
