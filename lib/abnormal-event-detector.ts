@@ -91,7 +91,13 @@ async function generateConversationalMessage(
       eventType,
     };
 
-    const prompt = `You are a well-informed friend casually telling someone about an interesting stock market event. Write ONE flowing paragraph that sounds natural and conversational - like you're texting a friend.
+    const prompt = `You are WealthyRabbit 🐇 - a smart, quick market analyst who spots opportunities before others do. You're the friend who reads Bloomberg at 5am, monitors Reddit sentiment, and always knows what's moving the market.
+
+Your personality:
+- Sharp but never arrogant - you know your stuff
+- Quick to the point - no fluff, just insights
+- Conversational like texting a savvy friend
+- You're FAST (that's why you're the rabbit 🐇)
 
 Context:
 - Stock: ${context.symbol}
@@ -108,22 +114,21 @@ News Context:
 - Headlines: ${context.headlines.map(h => h.headline).join('; ')}
 - Sentiment: ${context.sentimentCurrent.toFixed(0)}/100 (was ${context.sentimentPrevious.toFixed(0)}/100)
 
-Write ONE continuous paragraph (no sections, no bullet points) that:
-- Flows naturally like you're explaining it in one breath
-- Includes the key facts (what happened, the numbers, why it matters)
-- Mentions the actual news headlines if relevant
-- Explains your theory on why this is happening
-- Ends casually by mentioning they can ask you about Reddit/news/expert takes
+Write ONE continuous paragraph that:
+- Gets straight to the point (what's moving and why)
+- Includes key numbers and your theory
+- References actual headlines when relevant
+- Shows you're ahead of the curve ("spotted this early", "called this yesterday", "saw this coming")
+- Ends with: "Ask me about the Reddit buzz, news breakdown, or analyst takes if you want more. 🐇"
 
 Rules:
-- ONE paragraph only - make the text continuous and flowing
-- NO "Hey" or greetings (get straight to the point)
-- NO sections, headers, or bullet points
-- Keep it short (80-120 words max)
-- Use *bold* only for the stock symbol at the start
-- End with: "Want me to dig into the Reddit chatter, news, or what experts are saying? 🐇"
+- ONE flowing paragraph (80-120 words)
+- NO greetings, NO bullet points, NO sections
+- Start with: "*SYMBOL* just..." or "*SYMBOL* moved..."
+- Show confidence: "caught this move", "tracking this closely", "this confirms what I suspected"
+- Always end with the rabbit emoji 🐇
 
-Be conversational but don't use greetings. Start directly with the info, like: "*TSLA* just dropped 4.2% which is..."`;
+Example tone: "*TSLA* just dropped 4.2% which is 2.8× normal volatility — I caught this early when the earnings sentiment flipped from 65 to 32. The production delay headlines are flooding in faster than usual (8 vs avg 2.3), and this matches the pattern I saw last quarter. Ask me about the Reddit buzz, news breakdown, or analyst takes if you want more. 🐇"`;
 
 
     const completion = await openai.chat.completions.create({
@@ -142,11 +147,11 @@ Be conversational but don't use greetings. Start directly with the info, like: "
     }
 
     // Fallback if LLM fails
-    return `*${symbol}* moved ${Math.abs(stockData.dayChangePercent).toFixed(1)}% — that's ${(Math.abs(stockData.dayChangePercent) / volatility).toFixed(1)}× its usual swing. ${newsData.headlines.length > 0 ? newsData.headlines[0].headline : 'Checking what triggered this...'} Want me to dig into the Reddit chatter, news, or what experts are saying? 🐇`;
+    return `*${symbol}* just moved ${Math.abs(stockData.dayChangePercent).toFixed(1)}% — caught this at ${(Math.abs(stockData.dayChangePercent) / volatility).toFixed(1)}× normal volatility. ${newsData.headlines.length > 0 ? newsData.headlines[0].headline : 'Still pulling the full context...'} Ask me about the Reddit buzz, news breakdown, or analyst takes if you want more. 🐇`;
   } catch (error) {
     console.error('Error generating conversational message:', error);
     // Fallback message
-    return `*${symbol}* moved ${Math.abs(stockData.dayChangePercent).toFixed(1)}% — that's ${(Math.abs(stockData.dayChangePercent) / volatility).toFixed(1)}× its usual swing. ${newsData.headlines.length > 0 ? newsData.headlines[0].headline : 'Something interesting happened.'} Want me to dig into the Reddit chatter, news, or what experts are saying? 🐇`;
+    return `*${symbol}* moved ${Math.abs(stockData.dayChangePercent).toFixed(1)}% — spotted this moving at ${(Math.abs(stockData.dayChangePercent) / volatility).toFixed(1)}× normal levels. ${newsData.headlines.length > 0 ? newsData.headlines[0].headline : 'Tracking what triggered this.'} Ask me about the Reddit buzz, news breakdown, or analyst takes if you want more. 🐇`;
   }
 }
 
@@ -404,7 +409,7 @@ export async function checkAbnormalEventsForUser(userId: string, sendQuietMessag
 
       // If this is a manual check, send a "markets are quiet" message
       if (sendQuietMessage) {
-        const quietMessage = `📊 *Event Check Complete*\n\nMarkets look pretty normal right now — no unusual moves in your holdings.\n\nI'm watching for:\n• Big price swings (2× normal volatility)\n• News surges\n• Sentiment flips\n• Analyst activity\n\nYou'll hear from me when something interesting happens. 🐇`;
+        const quietMessage = `🐇 *WealthyRabbit here*\n\nJust scanned your holdings — everything's moving within normal ranges right now. Markets are pretty calm.\n\nI'm tracking:\n• Price swings 2× above normal volatility\n• Unusual news activity\n• Sentiment shifts\n• Analyst upgrades/downgrades\n\nYou'll hear from me the moment something interesting pops up. Fast alerts, that's what I do. 🐇`;
         await sendTelegramMessage(user.telegramChatId, quietMessage);
       }
     } else {

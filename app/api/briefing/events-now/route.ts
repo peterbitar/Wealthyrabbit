@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     // Send intro message
     await sendTelegramMessage(
       user.telegramChatId,
-      '🔍 *Checking for interesting events...*\n\nLooking at price moves, news surges, and sentiment shifts across your holdings.'
+      '🐇 *WealthyRabbit scanning...*\n\nChecking price moves, news activity, and sentiment shifts across your holdings. Give me a sec.'
     );
 
     // Small delay
