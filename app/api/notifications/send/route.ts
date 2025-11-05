@@ -111,7 +111,7 @@ export async function GET() {
       const threshold = mode === 'calm' ? 5 : mode === 'balanced' ? 2 : 1;
 
       for (const holding of user.holdings) {
-        const price = priceMap.get(holding.symbol);
+        const price = priceMap.get(holding.symbol) as any;
         if (!price) continue;
 
         const changePercent = Math.abs(price.dayChangePercent);
