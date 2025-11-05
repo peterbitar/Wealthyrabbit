@@ -203,7 +203,7 @@ export async function sendVoiceNote(
 
     await bot.sendVoice(chatId, voiceBuffer, {
       filename: 'voice.ogg',
-    });
+    } as any);
 
     console.log(`✅ Voice note sent successfully`);
     return { success: true };

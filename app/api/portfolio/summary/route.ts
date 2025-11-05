@@ -28,8 +28,8 @@ export async function GET(request: Request) {
 
     // Get all unique symbols
     const allSymbols = [
-      ...holdings.map(h => h.symbol),
-      ...watchlist.map(w => w.symbol),
+      ...holdings.map((h: any) => h.symbol),
+      ...watchlist.map((w: any) => w.symbol),
     ];
 
     // Fetch prices for all symbols
