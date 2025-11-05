@@ -101,7 +101,7 @@ export async function GET() {
       where: { symbol: { in: allSymbols } },
     });
 
-    const priceMap = new Map(prices.map(p => [p.symbol, p]));
+    const priceMap = new Map(prices.map((p: any) => [p.symbol, p]));
 
     const notifications = [];
 
