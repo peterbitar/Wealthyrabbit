@@ -18,7 +18,8 @@ export async function GET(request: Request) {
       ? now.getTime() - cached[0].lastUpdated.getTime()
       : Infinity;
 
-    // Return cached data if fresh
+    // Return cached data if fresh and has stocks
+    // Cache only contains stocks that passed the "unusual activity" filter
     if (cached.length > 0 && cacheAge < CACHE_DURATION_MS) {
       // Fetch current prices for cached stocks
       const symbols = cached.map(s => s.symbol);
@@ -45,107 +46,119 @@ export async function GET(request: Request) {
       });
     }
 
-    // Use a curated list of popular stocks for trending
-    // In production, this could be replaced with social sentiment API
-    const popularSymbols = [
-      'AAPL', 'TSLA', 'NVDA', 'MSFT', 'GOOGL',
-      'AMZN', 'META', 'AMD', 'NFLX', 'COIN'
+    // Fetch stocks that are actually moving (unusual activity)
+    // Start with a broader set of actively traded stocks to scan
+    const stocksToScan = [
+      'AAPL', 'TSLA', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'AMD', 'NFLX', 'COIN',
+      'SPY', 'QQQ', 'BABA', 'TSM', 'V', 'JPM', 'INTC', 'PYPL', 'ADBE', 'CRM',
+      'DIS', 'BA', 'GE', 'F', 'GM', 'UBER', 'LYFT', 'SQ', 'SHOP', 'SNAP',
+      'PLTR', 'RBLX', 'DKNG', 'Z', 'ABNB', 'MRNA', 'PFE', 'JNJ', 'WMT', 'TGT',
+      'HD', 'LOW', 'NKE', 'SBUX', 'MCD', 'KO', 'PEP', 'XOM', 'CVX', 'OXY'
     ];
 
-    // Fetch current prices for these stocks
-    const stockPrices = await prisma.stockPrice.findMany({
-      where: {
-        symbol: { in: popularSymbols }
-      }
-    });
+    const interestingStocks: any[] = [];
 
-    // For any missing prices, fetch from Finnhub
-    const missingSymbols = popularSymbols.filter(
-      symbol => !stockPrices.find(p => p.symbol === symbol)
-    );
-
-    for (const symbol of missingSymbols) {
+    // Scan each stock for unusual activity
+    for (const symbol of stocksToScan) {
       try {
+        // Fetch current quote
         const quoteResponse = await fetch(
           `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`
         );
-        if (quoteResponse.ok) {
-          const quoteData = await quoteResponse.json();
-          const currentPrice = quoteData.c || 0;
-          const previousClose = quoteData.pc || currentPrice;
-          const dayChange = currentPrice - previousClose;
-          const dayChangePercent = previousClose !== 0
-            ? (dayChange / previousClose) * 100
-            : 0;
 
-          const priceData = {
-            symbol,
-            name: symbol,
-            currentPrice,
-            previousClose,
-            dayChange,
-            dayChangePercent,
-            volume: null,
-            marketCap: null,
-            lastUpdated: now,
-          };
+        if (!quoteResponse.ok) continue;
 
-          await prisma.stockPrice.upsert({
-            where: { symbol },
-            update: priceData,
-            create: priceData,
-          });
+        const quoteData = await quoteResponse.json();
+        const currentPrice = quoteData.c || 0;
+        const previousClose = quoteData.pc || currentPrice;
 
-          stockPrices.push(priceData as any);
+        if (currentPrice === 0 || previousClose === 0) continue;
+
+        const dayChange = currentPrice - previousClose;
+        const dayChangePercent = (dayChange / previousClose) * 100;
+
+        // Only include stocks with significant moves (>3% either direction)
+        const absChange = Math.abs(dayChangePercent);
+        if (absChange < 3) continue;
+
+        // Check for news to determine if this is newsworthy
+        const today = new Date();
+        const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+        const fromDate = yesterday.toISOString().split('T')[0];
+        const toDate = today.toISOString().split('T')[0];
+
+        const newsResponse = await fetch(
+          `https://finnhub.io/api/v1/company-news?symbol=${symbol}&from=${fromDate}&to=${toDate}&token=${FINNHUB_API_KEY}`
+        );
+
+        let newsCount = 0;
+        if (newsResponse.ok) {
+          const newsItems = await newsResponse.json();
+          newsCount = Array.isArray(newsItems) ? newsItems.length : 0;
         }
-      } catch (err) {
-        console.error(`Failed to fetch ${symbol}:`, err);
-      }
-    }
 
-    const topStocks = stockPrices.slice(0, 10);
+        // Calculate "interestingness" score
+        // Higher score = more interesting (bigger move + more news)
+        const interestScore = absChange + (newsCount * 0.5);
 
-    // Enrich with social sentiment (simulated for now)
-    const enrichedStocks = await Promise.all(
-      topStocks.map(async (stock: any) => {
-        // Generate realistic social metrics
-        const redditBenchmark = Math.floor(Math.random() * 500) + 100;
-        const redditMentions = Math.floor(Math.random() * 1000) + 50;
-        const sentiment = stock.dayChangePercent >= 0 ? 'positive' : 'negative';
-
+        // Determine sentiment, vibe, and momentum based on actual movement
+        const sentiment = dayChangePercent >= 0 ? 'positive' : 'negative';
         let vibe = '';
         let momentum = '';
 
-        const absChange = Math.abs(stock.dayChangePercent);
         if (absChange > 5) {
-          vibe = stock.dayChangePercent > 0 ? 'On fire 🔥' : 'Free falling';
-          momentum = stock.dayChangePercent > 0 ? 'Strong' : 'Fading';
-        } else if (absChange > 2) {
-          vibe = stock.dayChangePercent > 0 ? 'Steady climb' : 'Sliding down';
+          vibe = dayChangePercent > 0 ? 'On fire 🔥' : 'Free falling';
+          momentum = dayChangePercent > 0 ? 'Strong' : 'Fading';
+        } else if (absChange >= 3) {
+          vibe = dayChangePercent > 0 ? 'Steady climb' : 'Sliding down';
           momentum = 'Building';
-        } else {
-          vibe = 'Chill vibes';
-          momentum = 'Stable';
         }
 
-        const friendsWatching = Math.floor(Math.random() * 50);
-
-        return {
-          symbol: stock.symbol,
-          name: stock.name,
-          currentPrice: stock.currentPrice,
-          dayChange: stock.dayChange,
-          dayChangePercent: stock.dayChangePercent,
-          sentiment,
-          vibe,
-          redditMentions,
-          redditBenchmark,
-          momentum,
-          friendsWatching,
+        // Store or update price data
+        const priceData = {
+          symbol,
+          name: symbol,
+          currentPrice,
+          previousClose,
+          dayChange,
+          dayChangePercent,
+          volume: null,
+          marketCap: null,
           lastUpdated: now,
         };
-      })
-    );
+
+        await prisma.stockPrice.upsert({
+          where: { symbol },
+          update: priceData,
+          create: priceData,
+        });
+
+        interestingStocks.push({
+          symbol,
+          name: symbol,
+          currentPrice,
+          dayChange,
+          dayChangePercent,
+          sentiment,
+          vibe,
+          redditMentions: newsCount * 10, // Use news count as proxy for buzz
+          redditBenchmark: 100, // Static baseline
+          momentum,
+          friendsWatching: 0, // Not used in MVP
+          lastUpdated: now,
+          interestScore,
+        });
+
+      } catch (err) {
+        console.error(`Failed to scan ${symbol}:`, err);
+      }
+    }
+
+    // Sort by interestingness score and take top 10
+    const enrichedStocks = interestingStocks
+      .sort((a, b) => b.interestScore - a.interestScore)
+      .slice(0, 10)
+      .map(({ interestScore, ...stock }) => stock); // Remove internal score field
 
     // Update cache - delete old entries and insert new ones
     await prisma.trendingStock.deleteMany({});

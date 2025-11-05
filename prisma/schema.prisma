@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -116,4 +116,18 @@ model TrendingStock {
   lastUpdated      DateTime @default(now())
 
   @@map("trending_stocks")
+}
+
+// Track sent notifications to prevent duplicates (24h deduplication)
+model SentNotification {
+  id        String   @id @default(cuid())
+  userId    String
+  symbol    String
+  eventType String   // "price_move", "news", "market_update"
+  sentAt    DateTime @default(now())
+  expiresAt DateTime // Automatically set to sentAt + 24 hours
+
+  @@index([userId, symbol, eventType])
+  @@index([expiresAt])
+  @@map("sent_notifications")
 }

@@ -1,72 +1,162 @@
-# WealthyRabbit
+# 🐇 WealthyRabbit
 
-A modern stock portfolio tracking application built with Next.js, TypeScript, Prisma, and Supabase.
+**Your calm market companion** - Get intelligent, grouped stock notifications when things actually move.
 
-## Features
+---
 
-- **List Management**: Create custom watchlists and track your invested stocks
-- **Ticker Tracking**: Add and manage stock ticker symbols in your lists
-- **Persistent Storage**: Data stored in Supabase PostgreSQL database
-- **Modern UI**: Clean interface built with Tailwind CSS
+## 🎯 What WealthyRabbit Does
 
-## Tech Stack
+Instead of spamming you with 5 separate notifications, WealthyRabbit:
+- ✅ **Groups related stocks by theme** ("AI sector rally", "tech volatility")
+- ✅ **Combines multiple sources** (Bloomberg + Reddit + CNBC)
+- ✅ **One conversational message** - reads like a friend texting
+- ✅ **Smart format selection** - text-only, text+voice, or summary to app
+- ✅ **24-hour deduplication** - never repeats the same stock twice
 
-- **Frontend**: Next.js 15, React 19, TypeScript
-- **Styling**: Tailwind CSS
-- **Database**: Supabase (PostgreSQL)
-- **ORM**: Prisma
-- **Package Manager**: pnpm
+---
 
-## Quick Start
-
-See [SETUP.md](./SETUP.md) for detailed setup instructions.
+## 🚀 Quick Start (Local Development)
 
 ```bash
-# 1. Install dependencies
+# Clone the repo
+git clone <your-repo-url>
+cd WealthyRabbit0
+
+# Install dependencies
 pnpm install
 
-# 2. Set up environment variables
+# Set up environment variables
 cp .env.example .env
-# Edit .env with your Supabase DATABASE_URL
+# Edit .env with your API keys
 
-# 3. Run database migration
-pnpm prisma:mig
+# Run database migrations
+npx prisma db push
 
-# 4. Generate Prisma Client
-pnpm prisma:gen
-
-# 5. Start development server
+# Start development server
 pnpm dev
 ```
 
-Visit `http://localhost:3000`
+Open [http://localhost:3000](http://localhost:3000)
 
-## Project Structure
+---
+
+## 📦 Tech Stack
+
+- **Framework**: Next.js 15 + React 19
+- **Database**: PostgreSQL (Prisma ORM)
+- **Styling**: Tailwind CSS
+- **Animations**: Framer Motion
+- **APIs**: 
+  - Finnhub (stock data + news)
+  - OpenAI (GPT-4o-mini for message generation + TTS for voice)
+  - Telegram Bot API
+
+---
+
+## 🎨 Features
+
+### Smart Messaging Hierarchy
+1. **TEXT_ONLY** - Simple moves with 1-2 clear points
+2. **TEXT_TEASER_AND_VOICE** - Nuanced moves with multiple sources
+3. **SUMMARY_TO_APP** - Complex/overwhelming situations
+
+### Multi-Source Intelligence
+- **News**: Bloomberg, Reuters, CNBC (via Finnhub)
+- **Social**: Reddit sentiment and mentions
+- **Cross-referenced**: "After checking Bloomberg and Reddit..."
+
+### Grouped Notifications
+```
+OLD: 5 stocks moving = 5 separate messages
+NEW: 5 stocks moving = 1 cohesive themed message
+```
+
+---
+
+## 📁 Project Structure
 
 ```
-WealthyRabbit0/
-├── app/                    # Next.js App Router
-│   ├── api/               # API routes
-│   │   └── lists/        # List & ticker endpoints
-│   ├── lists/            # Lists page
-│   ├── settings/         # Settings page
-│   └── layout.tsx        # Root layout
-├── components/           # React components
-│   └── Navbar.tsx       # Navigation bar
-├── lib/                 # Business logic
-│   ├── lists.ts        # List service (Prisma)
-│   └── prisma.ts       # Prisma client
-├── prisma/             # Database
-│   └── schema.prisma   # Database schema
-└── SETUP.md           # Setup instructions
+app/
+├── api/           # API routes
+│   ├── chat/      # AI chatbot
+│   ├── stocks/    # Stock data endpoints
+│   └── notifications/  # Notification system
+├── portfolio/     # Portfolio management
+├── discover/      # Trending stocks feed
+├── ask/           # AI chat interface
+└── manage/        # User settings
+
+lib/
+├── basic-notifications.ts   # Core notification logic
+├── telegram.ts              # Telegram integration
+└── prisma.ts               # Database client
+
+components/
+└── [UI components]
 ```
 
-## Version History
+---
 
-- **v0**: Initial Next.js setup with placeholder pages
-- **v1**: In-memory list management (resets on restart)
-- **v2**: Prisma + Supabase integration with persistent storage
+## 🔧 Configuration
 
-## License
+See `.env.example` for required environment variables:
+- `DATABASE_URL` - PostgreSQL connection string
+- `FINNHUB_API_KEY` - Stock data API key
+- `OPENAI_API_KEY` - AI message generation
+- `TELEGRAM_BOT_TOKEN` - Bot integration
+
+---
+
+## 🚀 Deployment
+
+**See [DEPLOYMENT.md](./DEPLOYMENT.md) for full guide**
+
+Quick deploy to Vercel:
+```bash
+./deploy.sh
+```
+
+Or manually:
+1. Push to GitHub
+2. Import to Vercel
+3. Set environment variables
+4. Deploy!
+
+---
+
+## 📊 Cost Estimate (100 users)
+
+- Vercel: **Free** (hobby tier)
+- Supabase Postgres: **Free** (500MB limit)
+- OpenAI API: **~$10-20/month**
+- Finnhub: **Free** (60 calls/min)
+- Telegram: **Free**
+
+**Total: $10-20/month for first 100 users**
+
+---
+
+## 🎯 Roadmap
+
+- [x] Grouped notifications by theme
+- [x] Multi-source intelligence (news + social)
+- [x] Smart messaging hierarchy
+- [x] 24-hour deduplication
+- [x] Voice notes for complex stories
+- [ ] Real Reddit API integration (currently simulated)
+- [ ] Twitter/X sentiment
+- [ ] Expert analyst opinions
+- [ ] Friend activity feed
+
+---
+
+## 📝 License
 
 MIT
+
+---
+
+## 🤝 Contributing
+
+This is a personal project, but feedback and suggestions are welcome!
+

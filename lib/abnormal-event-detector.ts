@@ -6,11 +6,28 @@
  */
 
 import { prisma } from './prisma';
-import { sendTelegramMessage } from './telegram';
+import { sendTelegramMessage, sendTelegramMessageWithDelay, sendNotificationWithVoiceNotes } from './telegram';
 import OpenAI from 'openai';
 
 // Track sent events to prevent duplicates (userId -> Set of event signatures)
 const sentEvents = new Map<string, Set<string>>();
+
+// Track last message time per user (userId -> timestamp)
+const lastMessageTime = new Map<string, number>();
+
+// Check if we should greet (first message in 4+ hours)
+function shouldGreet(userId: string): boolean {
+  const lastTime = lastMessageTime.get(userId);
+  if (!lastTime) return true; // First message ever
+
+  const fourHours = 4 * 60 * 60 * 1000;
+  return Date.now() - lastTime > fourHours;
+}
+
+// Update last message time
+function updateLastMessageTime(userId: string): void {
+  lastMessageTime.set(userId, Date.now());
+}
 
 // Generate signature for an event to detect duplicates
 function generateEventSignature(symbol: string, eventType: string, changePercent: number): string {
@@ -92,11 +109,163 @@ interface AnalystData {
   consensusChange: number;
 }
 
+interface NotificationMessage {
+  teaser: string;
+  voiceNotes: string[];
+}
+
 interface AbnormalEvent {
   symbol: string;
   type: 'price' | 'news' | 'reddit' | 'analyst' | 'sector';
   severity: 'medium' | 'high';
-  message: string;
+  message: NotificationMessage;
+}
+
+/**
+ * Helper function to generate a friendly, conversational message
+ * @param holdings - Array of stock symbols
+ * @param sentiment - Optional sentiment data
+ * @param news - Optional news headlines
+ * @param shouldGreet - Whether to include a greeting
+ * @returns A friendly message ready for Telegram or WhatsApp
+ */
+export async function generateMessage(options: {
+  holdings: Array<{ symbol: string; changePercent: number; currentPrice: number }>;
+  sentiment?: { positive: number; negative: number; neutral: number };
+  news?: string[];
+  shouldGreet?: boolean;
+}): Promise<string> {
+  try {
+    const { holdings, sentiment, news = [], shouldGreet = false } = options;
+
+    // Filter significant movers (>2%)
+    const movers = holdings.filter(h => Math.abs(h.changePercent) >= 2);
+
+    if (movers.length === 0) {
+      const greeting = shouldGreet ? 'Hey! ' : '';
+      return `${greeting}Just checked your holdings, everything's cruising along normally. Markets are pretty calm today 🐇`;
+    }
+
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
+    const greetingInstruction = shouldGreet
+      ? 'Start with "Hey!" or "Yo!"'
+      : 'Jump straight in, no greeting.';
+
+    const moversText = movers.map(h =>
+      `${h.symbol}: ${h.changePercent > 0 ? '+' : ''}${h.changePercent.toFixed(1)}% at $${h.currentPrice.toFixed(2)}`
+    ).join(', ');
+
+    const newsContext = news.length > 0
+      ? `Recent news: ${news.slice(0, 3).join('. ')}`
+      : 'No major news';
+
+    const sentimentText = sentiment
+      ? `Sentiment: ${sentiment.positive}% positive, ${sentiment.negative}% negative`
+      : '';
+
+    const prompt = `You're texting a friend about their stock portfolio.
+
+${greetingInstruction}
+
+What's moving:
+${moversText}
+
+${newsContext}
+${sentimentText}
+
+Write a casual 1-2 sentence message about what's happening. Sound natural, like you're genuinely texting them.
+
+Rules:
+- Stay under 300 characters
+- NO "—" dashes, use commas
+- Don't ask questions or prompt responses
+- End with 🐇
+
+Example: "Yo, ${movers[0]?.symbol || 'Apple'} popped ${Math.abs(movers[0]?.changePercent || 3).toFixed(1)}% today. Looks like earnings beat expectations, people are hyped 🐇"
+
+Your message:`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 100,
+      temperature: 0.9,
+    });
+
+    let message = completion.choices[0]?.message?.content || '';
+
+    // Clean up
+    message = message.replace(/—/g, ',');
+    if (message.length > 1000) {
+      message = message.substring(0, 997) + '...';
+    }
+
+    return message || `${shouldGreet ? 'Hey! ' : ''}${movers[0]?.symbol} moved ${Math.abs(movers[0]?.changePercent).toFixed(1)}% today 🐇`;
+  } catch (error) {
+    console.error('Error generating message:', error);
+    return `${options.shouldGreet ? 'Hey! ' : ''}Your portfolio has some movement today 🐇`;
+  }
+}
+
+/**
+ * Fetch trending stocks for discovery context
+ */
+async function fetchTrendingStocks(): Promise<Array<{ symbol: string; dayChangePercent: number; vibe: string }>> {
+  try {
+    const apiKey = process.env.FINNHUB_API_KEY;
+    if (!apiKey) return [];
+
+    // Fetch a few popular stocks for trending context
+    const trendingSymbols = ['AAPL', 'NVDA', 'TSLA', 'MSFT', 'AMZN'];
+    const trending: Array<{ symbol: string; dayChangePercent: number; vibe: string }> = [];
+
+    for (const symbol of trendingSymbols.slice(0, 3)) {
+      const response = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`);
+      const data = await response.json();
+
+      if (data.dp !== undefined) {
+        const absChange = Math.abs(data.dp);
+        let vibe = '';
+        if (absChange > 3) vibe = data.dp > 0 ? 'jumping' : 'dipping';
+        else if (absChange > 1.5) vibe = data.dp > 0 ? 'climbing' : 'sliding';
+        else vibe = 'steady';
+
+        trending.push({
+          symbol,
+          dayChangePercent: data.dp,
+          vibe
+        });
+      }
+    }
+
+    return trending;
+  } catch (error) {
+    console.error('Error fetching trending stocks:', error);
+    return [];
+  }
+}
+
+/**
+ * Fetch market indices for general market context
+ */
+async function fetchMarketIndices(): Promise<{ spy: number; vix?: number }> {
+  try {
+    const apiKey = process.env.FINNHUB_API_KEY;
+    if (!apiKey) return { spy: 0 };
+
+    const response = await fetch(`https://finnhub.io/api/v1/quote?symbol=SPY&token=${apiKey}`);
+    const data = await response.json();
+
+    return {
+      spy: data.dp || 0
+    };
+  } catch (error) {
+    console.error('Error fetching market indices:', error);
+    return { spy: 0 };
+  }
 }
 
 /**
@@ -107,8 +276,9 @@ async function generateConversationalMessage(
   eventType: string,
   stockData: StockData,
   newsData: NewsData,
-  volatility: number
-): Promise<string> {
+  volatility: number,
+  shouldGreet: boolean = false
+): Promise<NotificationMessage> {
   try {
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
@@ -123,6 +293,12 @@ async function generateConversationalMessage(
       minute: '2-digit',
       hour12: true
     });
+
+    // Fetch market context (25% general market trends + 15% discovery)
+    const [marketIndices, trendingStocks] = await Promise.all([
+      fetchMarketIndices(),
+      fetchTrendingStocks()
+    ]);
 
     // Build comprehensive context
     const context = {
@@ -141,46 +317,84 @@ async function generateConversationalMessage(
       sentimentChange: newsData.sentimentCurrent - newsData.sentimentPrevious,
       dateTime: dateStr,
       eventType,
+      marketContext: {
+        spyChange: marketIndices.spy,
+        trending: trendingStocks
+      }
     };
 
-    const prompt = `You are WealthyRabbit 🐇 - a smart, quick market analyst who spots opportunities before others do. You're the friend who reads Bloomberg at 5am, monitors Reddit sentiment, and always knows what's moving the market.
+    const trendingContext = trendingStocks.length > 0
+      ? trendingStocks.map(t => `${t.symbol} ${t.vibe} ${t.dayChangePercent > 0 ? '+' : ''}${t.dayChangePercent.toFixed(1)}%`).join(', ')
+      : '';
 
-Your personality:
-- Sharp but never arrogant - you know your stuff
-- Quick to the point - no fluff, just insights
-- Conversational like texting a savvy friend
-- You're FAST (that's why you're the rabbit 🐇)
+    const marketMoodText = Math.abs(marketIndices.spy) > 1
+      ? `Overall market ${marketIndices.spy > 0 ? 'up' : 'down'} ${Math.abs(marketIndices.spy).toFixed(1)}% today.`
+      : 'Market pretty steady overall.';
 
-Context:
-- Stock: ${context.symbol}
-- Current Price: $${context.currentPrice.toFixed(2)}
-- Day Change: ${context.dayChangePercent > 0 ? '+' : ''}${context.dayChangePercent.toFixed(1)}%
-- 20-Day Volatility: ${context.volatility20Day.toFixed(1)}%
-- Volatility Multiple: ${context.volatilityMultiple.toFixed(1)}× normal
-- Event Type: ${eventType}
-- Date/Time: ${context.dateTime}
+    const prompt = `You're WealthyRabbit 🐇, a calm and conversational market companion. You're messaging your friend about something happening in their portfolio.
 
-News Context:
-- Articles (last 6h): ${context.newsCount6h}
-- Average (7-day): ${context.newsAvg7day.toFixed(1)} per 6h
-- Headlines: ${context.headlines.map(h => h.headline).join('; ')}
-- Sentiment: ${context.sentimentCurrent.toFixed(0)}/100 (was ${context.sentimentPrevious.toFixed(0)}/100)
+Your role: Help people cut through market noise with human-sounding insights. Never robotic, never overwhelming, just helpful and interesting.
 
-Write ONE continuous paragraph that:
-- Gets straight to the point (what's moving and why)
-- Includes key numbers and your theory
-- References actual headlines when relevant
-- Shows you're ahead of the curve ("spotted this early", "called this yesterday", "saw this coming")
-- Ends with: "Ask me about the Reddit buzz, news breakdown, or analyst takes if you want more. 🐇"
+CONTENT MIX (important):
+- 60% focus on ${context.symbol} (their holding)
+- 25% mention broader market context
+- 15% note what's trending/interesting elsewhere
 
-Rules:
-- ONE flowing paragraph (80-120 words)
-- NO greetings, NO bullet points, NO sections
-- Start with: "*SYMBOL* just..." or "*SYMBOL* moved..."
-- Show confidence: "caught this move", "tracking this closely", "this confirms what I suspected"
-- Always end with the rabbit emoji 🐇
+Context for ${context.symbol} (their holding):
+- Price: $${context.currentPrice.toFixed(2)}, ${context.dayChangePercent > 0 ? 'up' : 'down'} ${Math.abs(context.dayChangePercent).toFixed(1)}%
+- This is ${context.volatilityMultiple.toFixed(1)}× the normal daily movement
+- News activity: ${context.newsCount6h} articles in 6h (usually ${context.newsAvg7day.toFixed(1)})
+- Headlines: ${context.headlines.slice(0, 2).map(h => h.headline).join('. ')}
+- Sentiment: shifted from ${context.sentimentPrevious.toFixed(0)} to ${context.sentimentCurrent.toFixed(0)}
 
-Example tone: "*TSLA* just dropped 4.2% which is 2.8× normal volatility — I caught this early when the earnings sentiment flipped from 65 to 32. The production delay headlines are flooding in faster than usual (8 vs avg 2.3), and this matches the pattern I saw last quarter. Ask me about the Reddit buzz, news breakdown, or analyst takes if you want more. 🐇"`;
+Broader market context:
+- ${marketMoodText}
+${trendingContext ? `- Trending: ${trendingContext}` : ''}
+
+Create a notification with two parts:
+
+TEXT_TEASER (under 140 characters):
+- Conversational and natural, like texting a friend
+- Specific to what happened (not generic)
+- Examples:
+  * "Hey, just saw Tesla jump nearly 6% this morning"
+  * "Apple's getting attention again, up 3% today"
+  * "Nvidia took a dip, down 4% after that earnings report"
+
+VOICE_NOTES (1-3 notes, each under 45 seconds when spoken):
+- Sound like a friend casually explaining what they found
+- Start naturally: "So I looked into this..." or "After reading Bloomberg..."
+- Include:
+  * What happened and probably why (casual explanation)
+  * How it fits with the broader market ("The whole market's up today..." or "While everything else is steady...")
+  * Quick mention of something trending/interesting ("Also noticed Tesla's climbing..." or "By the way, Apple's getting attention...")
+  * Different perspectives ("On Reddit, people are split...")
+  * Light personal take ("Kinda interesting how...")
+- End conversationally:
+  * "Check the app for a deep dive."
+  * "Interesting trend, right?"
+  * "I'm curious what you think about this one."
+- NO "—" character ever, use commas or natural breaks
+- Keep it under 45 seconds per voice note
+- Simple words, no jargon unless explaining it casually
+
+Tone:
+- Friendly, never formal or analytical
+- "Probably linked to..." not "This indicates..."
+- "Looks like" not "Analysis shows"
+- Natural curiosity, not robotic certainty
+
+Format EXACTLY like this:
+
+TEXT_TEASER:
+[your teaser]
+
+VOICE_NOTES:
+1. [voice note #1 script]
+2. [voice note #2 script if more to say]
+
+Write it now:`;
+
 
 
     const completion = await openai.chat.completions.create({
@@ -189,21 +403,133 @@ Example tone: "*TSLA* just dropped 4.2% which is 2.8× normal volatility — I c
         role: 'user',
         content: prompt
       }],
-      max_tokens: 300,
-      temperature: 0.7,
+      max_tokens: 1000,
+      temperature: 0.8,
     });
 
-    const messageText = completion.choices[0]?.message?.content;
+    let responseText = completion.choices[0]?.message?.content || '';
+
+    // Ensure no em-dashes
+    responseText = responseText.replace(/—/g, ',');
+
+    // Parse the response
+    const teaserMatch = responseText.match(/TEXT_TEASER:\s*\n(.+?)(?=\n\s*VOICE_NOTES:|$)/s);
+    const voiceNotesMatch = responseText.match(/VOICE_NOTES:\s*\n([\s\S]+?)$/);
+
+    if (teaserMatch && voiceNotesMatch) {
+      const teaser = teaserMatch[1].trim();
+      const voiceNotesText = voiceNotesMatch[1];
+
+      // Extract individual voice notes (numbered 1., 2., 3.)
+      const voiceNotes: string[] = [];
+      const noteMatches = voiceNotesText.matchAll(/\d+\.\s*(.+?)(?=\n\s*\d+\.|$)/gs);
+
+      for (const match of noteMatches) {
+        voiceNotes.push(match[1].trim());
+      }
+
+      // Limit to 3 voice notes
+      return {
+        teaser,
+        voiceNotes: voiceNotes.slice(0, 3)
+      };
+    }
+
+    // Fallback if parsing fails
+    const greeting = shouldGreet ? 'Hey, ' : '';
+    const direction = stockData.dayChangePercent > 0 ? 'up' : 'down';
+    const fallbackTeaser = `${greeting}just saw ${symbol} ${direction} ${Math.abs(stockData.dayChangePercent).toFixed(1)}% today`;
+    const fallbackVoiceNote = `So ${symbol} just moved ${Math.abs(stockData.dayChangePercent).toFixed(1)}%. ${newsData.headlines.length > 0 ? 'Probably linked to ' + newsData.headlines[0].headline.toLowerCase() + '.' : 'Still looking into what triggered it.'} Kinda interesting move, about ${(Math.abs(stockData.dayChangePercent) / volatility).toFixed(1)} times the normal daily swing. Check the app for a deep dive.`;
+
+    return {
+      teaser: fallbackTeaser,
+      voiceNotes: [fallbackVoiceNote]
+    };
+  } catch (error) {
+    console.error('Error generating conversational message:', error);
+    // Fallback message
+    const greeting = shouldGreet ? 'Hey, ' : '';
+    const direction = stockData.dayChangePercent > 0 ? 'up' : 'down';
+    const fallbackTeaser = `${greeting}${symbol} ${direction} ${Math.abs(stockData.dayChangePercent).toFixed(1)}% today`;
+    const fallbackVoiceNote = `Just noticed ${symbol} moved ${Math.abs(stockData.dayChangePercent).toFixed(1)}% today. Check the app for a deep dive.`;
+
+    return {
+      teaser: fallbackTeaser,
+      voiceNotes: [fallbackVoiceNote]
+    };
+  }
+}
+
+/**
+ * Generate a summary message for multiple events
+ */
+async function generateMultiEventSummary(
+  events: AbnormalEvent[],
+  shouldGreet: boolean
+): Promise<string> {
+  try {
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
+    const greetingInstruction = shouldGreet
+      ? 'Start with "Hey!" or "Yo!" since this is your first message today.'
+      : 'Jump straight in, no greeting.';
+
+    const symbols = events.map(e => e.symbol);
+    const symbolsText = symbols.length > 3
+      ? `${symbols.slice(0, 3).join(', ')} and ${symbols.length - 3} others`
+      : symbols.join(', ');
+
+    const prompt = `You're texting your friend about some movement in their portfolio.
+
+${greetingInstruction}
+
+Stocks moving: ${symbolsText}
+
+Write a super casual intro (1-2 sentences) that naturally mentions what's happening and that you'll break it down. Sound like you're genuinely texting them.
+
+Rules:
+- Keep it under 200 characters
+- NO "—" dashes ever, use commas
+- Sound excited but not over the top
+- End with 🐇
+- No questions, no prompts for responses
+
+Example: "Hey, saw some action today. ${symbols[0]}, ${symbols[1] || 'another stock'}, and a few more moving. Here's what's up 🐇"
+
+Write your message:`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{
+        role: 'user',
+        content: prompt
+      }],
+      max_tokens: 80,
+      temperature: 0.9,
+    });
+
+    let messageText = completion.choices[0]?.message?.content || '';
+
+    // Ensure no em-dashes
+    messageText = messageText.replace(/—/g, ',');
+
     if (messageText) {
       return messageText;
     }
 
-    // Fallback if LLM fails
-    return `*${symbol}* just moved ${Math.abs(stockData.dayChangePercent).toFixed(1)}% — caught this at ${(Math.abs(stockData.dayChangePercent) / volatility).toFixed(1)}× normal volatility. ${newsData.headlines.length > 0 ? newsData.headlines[0].headline : 'Still pulling the full context...'} Ask me about the Reddit buzz, news breakdown, or analyst takes if you want more. 🐇`;
+    // Fallback
+    const symbolList = events.map(e => e.symbol).join(', ');
+    return shouldGreet
+      ? `Hey! ${symbolList} all moving today. Here's the breakdown 🐇`
+      : `${symbolList} moving. Here's what's happening 🐇`;
   } catch (error) {
-    console.error('Error generating conversational message:', error);
-    // Fallback message
-    return `*${symbol}* moved ${Math.abs(stockData.dayChangePercent).toFixed(1)}% — spotted this moving at ${(Math.abs(stockData.dayChangePercent) / volatility).toFixed(1)}× normal levels. ${newsData.headlines.length > 0 ? newsData.headlines[0].headline : 'Tracking what triggered this.'} Ask me about the Reddit buzz, news breakdown, or analyst takes if you want more. 🐇`;
+    console.error('Error generating multi-event summary:', error);
+    const symbolList = events.map(e => e.symbol).join(', ');
+    return shouldGreet
+      ? `Hey! ${symbolList} all moving 🐇`
+      : `${symbolList} moving 🐇`;
   }
 }
 
@@ -350,12 +676,15 @@ async function detectAbnormalEvents(symbol: string, stockData: StockData): Promi
     // Combine all event types into the description
     const eventType = triggeredConditions.join(' + ');
 
+    // NOTE: shouldGreet will be handled at the sending level, not here
+    // We generate messages without greeting, it gets added when sending if needed
     const message = await generateConversationalMessage(
       symbol,
       eventType,
       stockData,
       newsData,
-      volatility
+      volatility,
+      false // Never greet in individual event messages - greeting handled in summary/first message
     );
 
     // Determine severity (high if any high-severity condition)
@@ -454,55 +783,74 @@ export async function checkAbnormalEventsForUser(userId: string, sendQuietMessag
       return true;
     });
 
-    // Send notifications for high-severity events immediately, batch medium ones
-    const highEvents = newEvents.filter(e => e.severity === 'high');
-    const mediumEvents = newEvents.filter(e => e.severity === 'medium');
+    // Check if we should greet (first message in 4+ hours)
+    const shouldGreetUser = shouldGreet(userId);
 
-    // Send high-severity events individually
-    for (const event of highEvents) {
-      console.log(`🚨 High-severity event: ${event.symbol} - ${event.type}`);
-      await sendTelegramMessage(user.telegramChatId, event.message);
+    if (newEvents.length === 0) {
+      console.log(`✅ No abnormal events detected for user ${userId}`);
+
+      // If this is a manual check, send a "markets are quiet" message
+      if (sendQuietMessage) {
+        const greeting = shouldGreetUser ? 'Hey, ' : '';
+        const quietMessage = `${greeting}just checked your portfolio. Everything's moving within pretty normal ranges today, nothing jumping out as super interesting right now.\n\nI'm keeping an eye on things though. Check the app for a deep dive.`;
+        await sendTelegramMessageWithDelay(user.telegramChatId, quietMessage);
+        updateLastMessageTime(userId);
+      }
+      return;
+    }
+
+    console.log(`📨 Sending ${newEvents.length} event(s) to user ${userId}`);
+
+    // If multiple events (2+), send a summary first
+    if (newEvents.length >= 2) {
+      console.log(`📊 Generating summary for ${newEvents.length} events`);
+      const summary = await generateMultiEventSummary(newEvents, shouldGreetUser);
+      await sendTelegramMessageWithDelay(user.telegramChatId, summary);
+
+      // Wait a bit before sending details
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+
+    // Send individual event details
+    for (let i = 0; i < newEvents.length; i++) {
+      const event = newEvents[i];
+      console.log(`🚨 Event ${i + 1}/${newEvents.length}: ${event.symbol} - ${event.type}`);
+
+      let teaser = event.message.teaser;
+      let voiceNotes = [...event.message.voiceNotes];
+
+      // If single event and should greet, add greeting to first voice note
+      if (newEvents.length === 1 && shouldGreetUser) {
+        if (voiceNotes.length > 0 && !voiceNotes[0].startsWith('Hey!') && !voiceNotes[0].startsWith('Yo!')) {
+          voiceNotes[0] = `Hey! ${voiceNotes[0]}`;
+        }
+      }
+
+      // If multiple events, remove greeting from individual messages (summary already greeted)
+      if (newEvents.length >= 2 && voiceNotes.length > 0) {
+        voiceNotes[0] = voiceNotes[0].replace(/^(Hey!|Yo!|Hi!)\s*/, '');
+      }
+
+      // Send notification with voice notes
+      await sendNotificationWithVoiceNotes(user.telegramChatId, teaser, voiceNotes);
 
       // Mark as sent
       const signature = generateEventSignature(event.symbol, event.type, 0);
       markEventAsSent(userId, signature);
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-
-    // Batch medium events if there are multiple
-    if (mediumEvents.length > 0) {
-      if (mediumEvents.length === 1) {
-        console.log(`📢 Medium event: ${mediumEvents[0].symbol}`);
-        await sendTelegramMessage(user.telegramChatId, mediumEvents[0].message);
-
-        // Mark as sent
-        const signature = generateEventSignature(mediumEvents[0].symbol, mediumEvents[0].type, 0);
-        markEventAsSent(userId, signature);
-      } else {
-        console.log(`📢 ${mediumEvents.length} medium events detected`);
-        const batchMessage = mediumEvents.map(e => e.message).join('\n\n');
-        await sendTelegramMessage(user.telegramChatId, batchMessage);
-
-        // Mark all as sent
-        mediumEvents.forEach(event => {
-          const signature = generateEventSignature(event.symbol, event.type, 0);
-          markEventAsSent(userId, signature);
-        });
+      // Wait between events
+      if (i < newEvents.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
       }
     }
 
-    if (allEvents.length === 0) {
-      console.log(`✅ No abnormal events detected for user ${userId}`);
+    // Note: Closing message is now included in each voice note
 
-      // If this is a manual check, send a "markets are quiet" message
-      if (sendQuietMessage) {
-        const quietMessage = `🐇 *WealthyRabbit here*\n\nJust scanned your holdings — everything's moving within normal ranges right now. Markets are pretty calm.\n\nI'm tracking:\n• Price swings 2× above normal volatility\n• Unusual news activity\n• Sentiment shifts\n• Analyst upgrades/downgrades\n\nYou'll hear from me the moment something interesting pops up. Fast alerts, that's what I do. 🐇`;
-        await sendTelegramMessage(user.telegramChatId, quietMessage);
-      }
-    } else {
-      console.log(`✅ Processed ${allEvents.length} events for user ${userId}`);
-    }
+    // Update last message time
+    updateLastMessageTime(userId);
+
+    console.log(`✅ Processed ${newEvents.length} events for user ${userId}`);
+
   } catch (error) {
     console.error(`Error checking abnormal events for user ${userId}:`, error);
   }

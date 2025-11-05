@@ -1,31 +1,62 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import FilterChips from "@/components/FilterChips";
 import AddStockModal from "@/components/AddStockModal";
+import LoadingSkeleton from "@/components/LoadingSkeleton";
+import ErrorState from "@/components/ErrorState";
+import Toast from "@/components/Toast";
+import EmptyState from "@/components/EmptyState";
+import Card from "@/components/Card";
+import Button from "@/components/Button";
+import HorizontalScroll from "@/components/HorizontalScroll";
+import CollapsibleSection from "@/components/CollapsibleSection";
+import SeeAllButton from "@/components/SeeAllButton";
+import Sparkline from "@/components/Sparkline";
+import PercentageBadge from "@/components/PercentageBadge";
+import Tabs from "@/components/Tabs";
+import StockDetailModal from "@/components/StockDetailModal";
 
 export default function Portfolio() {
+  const [activeTab, setActiveTab] = useState("holdings");
   const [holdingsFilter, setHoldingsFilter] = useState("All");
   const [watchlistFilter, setWatchlistFilter] = useState("All");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [portfolioData, setPortfolioData] = useState<any>(null);
   const [showAddHolding, setShowAddHolding] = useState(false);
   const [showAddWatchlist, setShowAddWatchlist] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedStock, setSelectedStock] = useState<{ symbol: string; name: string } | null>(null);
+  const [showAllHoldings, setShowAllHoldings] = useState(false);
+  const [showAllWatchlist, setShowAllWatchlist] = useState(false);
+
+  const MAX_HOLDINGS_DISPLAY = 5;
+  const MAX_WATCHLIST_DISPLAY = 5;
 
   // Hardcoded test user ID (in production, get from auth)
   const userId = "cmh503gjd00008okpn9ic7cia";
 
   const fetchPortfolio = async () => {
     try {
+      setError(false);
       const response = await fetch(`/api/portfolio/summary?userId=${userId}`);
+      if (!response.ok) throw new Error('Failed to fetch portfolio');
       const data = await response.json();
       setPortfolioData(data);
     } catch (error) {
       console.error('Error fetching portfolio:', error);
+      setError(true);
+      setToast({ show: true, message: 'Failed to load portfolio', type: 'error' });
     } finally {
       setLoading(false);
     }
+  };
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToast({ show: true, message, type });
   };
 
   useEffect(() => {
@@ -34,46 +65,69 @@ export default function Portfolio() {
 
   // Delete holding
   const deleteHolding = async (holdingId: string) => {
+    setDeletingId(holdingId);
     try {
       const response = await fetch(`/api/portfolio/holdings?id=${holdingId}`, {
         method: 'DELETE',
       });
       if (response.ok) {
-        // Refresh portfolio data
+        showToast('Stock removed from portfolio', 'success');
         await fetchPortfolio();
+      } else {
+        throw new Error('Failed to delete');
       }
     } catch (error) {
       console.error('Error deleting holding:', error);
+      showToast('Failed to remove stock', 'error');
+    } finally {
+      setDeletingId(null);
     }
   };
 
   // Delete from watchlist
   const deleteFromWatchlist = async (watchlistId: string) => {
+    setDeletingId(watchlistId);
     try {
       const response = await fetch(`/api/portfolio/watchlist?id=${watchlistId}`, {
         method: 'DELETE',
       });
       if (response.ok) {
-        // Refresh portfolio data
+        showToast('Stock removed from watchlist', 'success');
         await fetchPortfolio();
+      } else {
+        throw new Error('Failed to delete');
       }
     } catch (error) {
       console.error('Error removing from watchlist:', error);
+      showToast('Failed to remove stock', 'error');
+    } finally {
+      setDeletingId(null);
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen p-4 flex items-center justify-center">
-        <div className="text-gray-400">Loading portfolio...</div>
+      <div className="min-h-screen p-4 space-y-6">
+        <div className="pt-4">
+          <LoadingSkeleton variant="text" className="w-48 h-8 mb-2" count={1} />
+          <LoadingSkeleton variant="text" className="w-32 h-4" count={1} />
+        </div>
+        <LoadingSkeleton variant="card" className="h-40" count={1} />
+        <LoadingSkeleton variant="card" className="h-24" count={1} />
+        <div className="space-y-3">
+          <LoadingSkeleton variant="card" className="h-32" count={3} />
+        </div>
       </div>
     );
   }
 
-  if (!portfolioData) {
+  if (error || !portfolioData) {
     return (
       <div className="min-h-screen p-4 flex items-center justify-center">
-        <div className="text-gray-400">Failed to load portfolio</div>
+        <ErrorState
+          message="We couldn't load your portfolio. Please check your connection and try again."
+          onRetry={fetchPortfolio}
+        />
       </div>
     );
   }
@@ -116,12 +170,19 @@ export default function Portfolio() {
   };
 
   return (
-    <div className="min-h-screen p-4 space-y-6">
+    <>
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.show}
+        onClose={() => setToast({ ...toast, show: false })}
+      />
+      <div className="min-h-screen p-4 space-y-4 pb-20">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="pt-4"
+        className="pt-2"
       >
         <h1 className="text-2xl font-semibold text-gray-100 mb-1">
           Your Portfolio
@@ -133,48 +194,6 @@ export default function Portfolio() {
             day: "numeric",
           })}
         </p>
-      </motion.div>
-
-      {/* Portfolio Summary Card */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.1 }}
-        className="bg-gradient-to-br from-rabbit-card to-rabbit-border rounded-3xl p-6 relative overflow-hidden"
-      >
-        {/* Breathing glow */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-rabbit-mint-500/10 rounded-full blur-3xl animate-breathe" />
-
-        <div className="relative z-10">
-          <p className="text-sm text-gray-400 mb-2">Total Value</p>
-          <h2 className="text-4xl font-bold text-gray-100 mb-4">
-            ${summary.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </h2>
-
-          <div className="flex items-center gap-2">
-            <span
-              className={`text-lg font-semibold ${
-                summary.dayChange >= 0
-                  ? "text-rabbit-success"
-                  : "text-rabbit-error"
-              }`}
-            >
-              {summary.dayChange >= 0 ? "+" : ""}
-              ${Math.abs(summary.dayChange).toFixed(2)}
-            </span>
-            <span
-              className={`text-sm ${
-                summary.dayChange >= 0
-                  ? "text-rabbit-success/70"
-                  : "text-rabbit-error/70"
-              }`}
-            >
-              ({summary.dayChangePercent >= 0 ? "+" : ""}
-              {summary.dayChangePercent.toFixed(2)}%)
-            </span>
-            <span className="text-gray-500 text-sm">today</span>
-          </div>
-        </div>
       </motion.div>
 
       {/* AI Insight */}
@@ -197,35 +216,71 @@ export default function Portfolio() {
         </div>
       </motion.div>
 
-      {/* Holdings */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-200">Holdings</h3>
-          <button
-            onClick={() => setShowAddHolding(true)}
-            className="flex items-center gap-1 text-xs text-rabbit-mint-400 hover:text-rabbit-mint-300 font-medium"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Add Stock
-          </button>
-        </div>
-
-        <FilterChips
-          filters={["All", "Winning", "Losing", "Tech", "Finance"]}
-          activeFilter={holdingsFilter}
-          onFilterChange={setHoldingsFilter}
+      {/* Tabs */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="flex items-center justify-between gap-2"
+      >
+        <Tabs
+          tabs={[
+            { id: "holdings", label: "Holdings", count: filteredHoldings.length },
+            { id: "watchlist", label: "Watchlist", count: filteredWatchlist.length },
+          ]}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
         />
+      </motion.div>
 
-        <div className="space-y-3">
-          {filteredHoldings.map((stock: any, index: number) => (
+      {/* Tab Content */}
+      <div>
+        {activeTab === "holdings" ? (
+          <>
+            {/* Holdings Filters and Actions */}
+            <div className="flex items-center justify-between mb-3 gap-2">
+              <FilterChips
+                filters={["All", "Winning", "Losing", "Tech", "Finance"]}
+                activeFilter={holdingsFilter}
+                onFilterChange={setHoldingsFilter}
+              />
+              <button
+                onClick={() => setShowAddHolding(true)}
+                className="flex items-center gap-1 text-xs text-rabbit-mint-400 hover:text-rabbit-mint-300 font-medium flex-shrink-0"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Add Stock
+              </button>
+            </div>
+
+        {filteredHoldings.length === 0 ? (
+          <EmptyState
+            emoji="📊"
+            title="No holdings yet"
+            description="Add your first stock to start tracking your portfolio and get personalized insights."
+            actionLabel="Add Stock"
+            onAction={() => setShowAddHolding(true)}
+          />
+        ) : (
+          <>
+            <div className="space-y-3">
+              <AnimatePresence mode="popLayout">
+                {(showAllHoldings ? filteredHoldings : filteredHoldings.slice(0, MAX_HOLDINGS_DISPLAY)).map((stock: any, index: number) => (
             <motion.div
-              key={stock.symbol}
+              key={stock.id}
+              layout
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 + index * 0.1 }}
-              className="bg-rabbit-card rounded-2xl p-4 border border-rabbit-border hover:border-rabbit-mint-500/30 transition-all"
+              exit={{ opacity: 0, x: -10, scale: 0.95 }}
+              transition={{ delay: index * 0.05 }}
+              whileHover={{ y: -2, scale: 1.005 }}
+              onClick={() => {
+                console.log('Stock card clicked:', stock.symbol, stock.name);
+                setSelectedStock({ symbol: stock.symbol, name: stock.name });
+              }}
+              className="bg-rabbit-card rounded-2xl p-5 border border-rabbit-border hover:border-rabbit-mint-500/30 transition-all shadow-md shadow-black/10 hover:shadow-lg hover:shadow-rabbit-mint-500/10 cursor-pointer"
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-3 flex-1">
@@ -248,30 +303,37 @@ export default function Portfolio() {
                 </div>
 
                 <div className="flex items-center gap-3">
+                  <Sparkline
+                    color={stock.dayChange >= 0 ? "#10b981" : "#ef4444"}
+                    width={70}
+                    height={30}
+                  />
                   <div className="text-right">
                     <p className="font-semibold text-gray-100">
                       ${stock.totalValue.toLocaleString()}
                     </p>
-                    <p
-                      className={`text-xs ${
-                        stock.dayChange >= 0
-                          ? "text-rabbit-success"
-                          : "text-rabbit-error"
-                      }`}
-                    >
-                      {stock.dayChange >= 0 ? "+" : ""}
-                      {stock.dayChange.toFixed(1)}%
-                    </p>
+                    <PercentageBadge value={stock.dayChange} size="sm" />
                   </div>
-                  <button
-                    onClick={() => deleteHolding(stock.id)}
-                    className="p-2 hover:bg-rabbit-error/10 rounded-lg transition-colors"
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteHolding(stock.id);
+                    }}
+                    disabled={deletingId === stock.id}
+                    className="p-2 hover:bg-rabbit-error/10 rounded-lg transition-colors disabled:opacity-50"
                     title="Remove from portfolio"
+                    aria-label="Remove stock from portfolio"
                   >
-                    <svg className="w-4 h-4 text-gray-500 hover:text-rabbit-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+                    {deletingId === stock.id ? (
+                      <div className="w-4 h-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <svg className="w-4 h-4 text-gray-500 hover:text-rabbit-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    )}
+                  </motion.button>
                 </div>
               </div>
 
@@ -323,98 +385,132 @@ export default function Portfolio() {
                 <span>{stock.friendsWatching} friends watching</span>
               </div>
             </motion.div>
-          ))}
-        </div>
-      </div>
-
-      {/* Watchlist */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-200">Watching</h3>
-          <button
-            onClick={() => setShowAddWatchlist(true)}
-            className="flex items-center gap-1 text-xs text-rabbit-mint-400 hover:text-rabbit-mint-300 font-medium"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Add Stock
-          </button>
-        </div>
-
-        <FilterChips
-          filters={["All", "High Priority", "Tech", "Finance"]}
-          activeFilter={watchlistFilter}
-          onFilterChange={setWatchlistFilter}
-        />
-
-        <div className="space-y-2">
-          {filteredWatchlist.map((stock: any, index: number) => (
-            <motion.div
-              key={stock.symbol}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.6 + index * 0.1 }}
-              className="bg-rabbit-card/50 rounded-xl p-3 border border-rabbit-border/50 flex items-center justify-between"
-            >
-              <div className="flex items-center gap-3 flex-1">
-                <div
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    stock.sentiment === "positive"
-                      ? "bg-rabbit-success"
-                      : "bg-gray-500"
-                  }`}
+                ))}
+              </AnimatePresence>
+            </div>
+            {filteredHoldings.length > MAX_HOLDINGS_DISPLAY && !showAllHoldings && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-3 text-center"
+              >
+                <SeeAllButton
+                  count={filteredHoldings.length - MAX_HOLDINGS_DISPLAY}
+                  onClick={() => setShowAllHoldings(true)}
                 />
-                <div>
-                  <h4 className="text-sm font-medium text-gray-200">
-                    {stock.symbol}
-                  </h4>
-                  <p className="text-xs text-gray-500">{stock.name}</p>
-                </div>
-              </div>
+              </motion.div>
+            )}
+          </>
+        )}
+          </>
+        ) : (
+          <>
+            {/* Watchlist Filters and Actions */}
+            <div className="flex items-center justify-between mb-3 gap-2">
+              <FilterChips
+                filters={["All", "High Priority", "Tech", "Finance"]}
+                activeFilter={watchlistFilter}
+                onFilterChange={setWatchlistFilter}
+              />
+              <button
+                onClick={() => setShowAddWatchlist(true)}
+                className="flex items-center gap-1 text-xs text-rabbit-mint-400 hover:text-rabbit-mint-300 font-medium flex-shrink-0"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Add Stock
+              </button>
+            </div>
 
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <p className="text-sm font-medium text-gray-200">
-                    ${stock.currentPrice.toFixed(2)}
-                  </p>
-                  <p
-                    className={`text-xs ${
-                      stock.dayChange >= 0
-                        ? "text-rabbit-success"
-                        : "text-rabbit-error"
-                    }`}
-                  >
-                    {stock.dayChange >= 0 ? "+" : ""}
-                    {stock.dayChange.toFixed(2)}%
-                  </p>
-                </div>
-                <button
-                  onClick={() => deleteFromWatchlist(stock.id)}
-                  className="p-2 hover:bg-rabbit-error/10 rounded-lg transition-colors"
-                  title="Remove from watchlist"
-                >
-                  <svg className="w-4 h-4 text-gray-500 hover:text-rabbit-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+            {/* Watchlist Content */}
+            {filteredWatchlist.length === 0 ? (
+              <EmptyState
+                emoji="👀"
+                title="Your watchlist is empty"
+                description="Add stocks you're interested in to keep track of their performance."
+                actionLabel="Add Stock"
+                onAction={() => setShowAddWatchlist(true)}
+              />
+            ) : (
+              <div className="space-y-3">
+                <AnimatePresence mode="popLayout">
+                  {filteredWatchlist.map((stock: any, index: number) => (
+                    <motion.div
+                      key={stock.id}
+                      layout
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -10, scale: 0.95 }}
+                      transition={{ delay: index * 0.05 }}
+                      whileHover={{ y: -2, scale: 1.005 }}
+                      onClick={() => {
+                console.log('Stock card clicked:', stock.symbol, stock.name);
+                setSelectedStock({ symbol: stock.symbol, name: stock.name });
+              }}
+                      className="bg-rabbit-card rounded-2xl p-5 border border-rabbit-border hover:border-rabbit-mint-500/30 transition-all shadow-md shadow-black/10 hover:shadow-lg hover:shadow-rabbit-mint-500/10 cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-3 flex-1">
+                          <div
+                            className={`w-2 h-2 rounded-full ${
+                              stock.sentiment === "positive"
+                                ? "bg-rabbit-success animate-breathe"
+                                : stock.sentiment === "negative"
+                                ? "bg-rabbit-error animate-breathe"
+                                : "bg-gray-500"
+                            }`}
+                          />
+                          <div>
+                            <h4 className="font-semibold text-gray-100">
+                              {stock.symbol}
+                            </h4>
+                            <p className="text-xs text-gray-500">{stock.name}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <Sparkline
+                            color={stock.dayChange >= 0 ? "#10b981" : "#ef4444"}
+                            width={70}
+                            height={30}
+                          />
+                          <div className="text-right">
+                            <p className="font-semibold text-gray-100">
+                              ${stock.currentPrice.toFixed(2)}
+                            </p>
+                            <PercentageBadge value={stock.dayChange} size="sm" />
+                          </div>
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteFromWatchlist(stock.id);
+                            }}
+                            disabled={deletingId === stock.id}
+                            className="p-2 hover:bg-rabbit-error/10 rounded-lg transition-colors disabled:opacity-50"
+                            title="Remove from watchlist"
+                            aria-label="Remove stock from watchlist"
+                          >
+                            {deletingId === stock.id ? (
+                              <div className="w-4 h-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <svg className="w-4 h-4 text-gray-500 hover:text-rabbit-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            )}
+                          </motion.button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
               </div>
-            </motion.div>
-          ))}
-        </div>
+            )}
+          </>
+        )}
       </div>
-
-      {/* Empty state message */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1 }}
-        className="text-center py-8"
-      >
-        <p className="text-sm text-gray-500">
-          🐇 Markets are quiet — your portfolio's resting too
-        </p>
-      </motion.div>
 
       {/* Modals */}
       <AddStockModal
@@ -431,6 +527,18 @@ export default function Portfolio() {
         userId={userId}
         mode="watchlist"
       />
-    </div>
+      {selectedStock && (
+        <>
+          {console.log('Rendering modal for:', selectedStock)}
+          <StockDetailModal
+            isOpen={true}
+            onClose={() => setSelectedStock(null)}
+            symbol={selectedStock.symbol}
+            name={selectedStock.name}
+          />
+        </>
+      )}
+      </div>
+    </>
   );
 }

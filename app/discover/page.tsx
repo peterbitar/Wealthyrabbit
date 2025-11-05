@@ -4,6 +4,9 @@ import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import FilterChips from "@/components/FilterChips";
 import TimeFilter from "@/components/TimeFilter";
+import Sparkline from "@/components/Sparkline";
+import PercentageBadge from "@/components/PercentageBadge";
+import StockDetailModal from "@/components/StockDetailModal";
 
 // Default dummy data (will be replaced with API data)
 const defaultTrendingStocks = [
@@ -149,6 +152,7 @@ const news = [
 ];
 
 export default function Discover() {
+  const [activeTab, setActiveTab] = useState<"trending" | "social" | "experts" | "newsletters" | "news">("trending");
   const [trendingFilter, setTrendingFilter] = useState("All");
   const [trendingTime, setTrendingTime] = useState("Today");
   const [expertFilter, setExpertFilter] = useState("All");
@@ -159,6 +163,9 @@ export default function Discover() {
   const [newsletterTime, setNewsletterTime] = useState("This Week");
   const [newsFilter, setNewsFilter] = useState("All");
   const [newsTime, setNewsTime] = useState("Today");
+
+  // Stock detail modal state
+  const [selectedStock, setSelectedStock] = useState<{ symbol: string; name: string } | null>(null);
 
   // State for API data
   const [trendingStocks, setTrendingStocks] = useState<any[]>(defaultTrendingStocks);
@@ -242,18 +249,45 @@ export default function Discover() {
         </p>
       </motion.div>
 
-      {/* Trending Now */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold text-gray-200">🔥 Trending Now</h2>
-            <span className="text-xs text-gray-500">Live</span>
-          </div>
-          <button className="text-xs text-rabbit-mint-400 hover:text-rabbit-mint-300 font-medium">
-            See all →
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-rabbit-border overflow-x-auto pb-1">
+        {[
+          { id: "trending", label: "🔥 Trending", count: filteredTrendingStocks.length },
+          { id: "social", label: "👥 Social", count: fromFriends.length },
+          { id: "experts", label: "💭 Experts", count: expertTakes.length },
+          { id: "newsletters", label: "📬 Newsletters", count: newsletters.length },
+          { id: "news", label: "📰 News", count: news.length },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`px-4 py-2 rounded-t-lg font-medium text-sm transition-colors whitespace-nowrap relative flex items-center gap-2 ${
+              activeTab === tab.id
+                ? "text-rabbit-mint-400 bg-rabbit-card"
+                : "text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            {tab.label}
+            <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+              activeTab === tab.id
+                ? "bg-rabbit-mint-500/20 text-rabbit-mint-400"
+                : "bg-rabbit-border/50 text-gray-600"
+            }`}>
+              {tab.count}
+            </span>
+            {activeTab === tab.id && (
+              <motion.div
+                layoutId="activeDiscoverTab"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-rabbit-mint-500"
+              />
+            )}
           </button>
-        </div>
+        ))}
+      </div>
 
+      {/* Trending Tab */}
+      {activeTab === "trending" && (
+      <div>
         <FilterChips
           filters={["All", "My Stocks", "Tech", "Finance", "Crypto"]}
           activeFilter={trendingFilter}
@@ -272,10 +306,15 @@ export default function Discover() {
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="bg-rabbit-card rounded-2xl p-4 border border-rabbit-border hover:border-rabbit-mint-500/30 transition-all"
+              whileHover={{ y: -2, scale: 1.005 }}
+              onClick={() => {
+                console.log('Discover stock clicked:', stock.symbol, stock.name);
+                setSelectedStock({ symbol: stock.symbol, name: stock.name });
+              }}
+              className="bg-rabbit-card rounded-2xl p-5 border border-rabbit-border hover:border-rabbit-mint-500/30 transition-all shadow-md shadow-black/10 hover:shadow-lg hover:shadow-rabbit-mint-500/10 cursor-pointer"
             >
               <div className="flex items-center justify-between mb-2">
-                <div>
+                <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold text-gray-100">{stock.symbol}</h3>
                     <span className="text-xs px-2 py-0.5 bg-rabbit-mint-500/10 text-rabbit-mint-400 rounded-full">
@@ -285,16 +324,16 @@ export default function Discover() {
                   <p className="text-xs text-gray-500">{stock.name}</p>
                 </div>
 
-                <div className="text-right">
-                  <p className="font-semibold text-gray-100">${stock.price}</p>
-                  <p
-                    className={`text-sm ${
-                      stock.change >= 0 ? "text-rabbit-success" : "text-rabbit-error"
-                    }`}
-                  >
-                    {stock.change >= 0 ? "+" : ""}
-                    {stock.change.toFixed(1)}%
-                  </p>
+                <div className="flex items-center gap-3">
+                  <Sparkline
+                    color={stock.change >= 0 ? "#10b981" : "#ef4444"}
+                    width={60}
+                    height={28}
+                  />
+                  <div className="text-right">
+                    <p className="font-semibold text-gray-100">${stock.price}</p>
+                    <PercentageBadge value={stock.change} size="sm" />
+                  </div>
                 </div>
               </div>
 
@@ -331,16 +370,11 @@ export default function Discover() {
           ))}
         </div>
       </div>
+      )}
 
-      {/* Expert Takes */}
+      {/* Experts Tab */}
+      {activeTab === "experts" && (
       <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-gray-200">💭 Expert Takes</h2>
-          <button className="text-xs text-rabbit-mint-400 hover:text-rabbit-mint-300 font-medium">
-            See all →
-          </button>
-        </div>
-
         <FilterChips
           filters={["All", "My Stocks", "Bullish", "Bearish", "Neutral"]}
           activeFilter={expertFilter}
@@ -359,7 +393,8 @@ export default function Discover() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 + index * 0.1 }}
-              className="bg-rabbit-card/50 rounded-2xl p-4 border border-rabbit-border/50"
+              whileHover={{ y: -2, scale: 1.005 }}
+              className="bg-rabbit-card/50 rounded-2xl p-5 border border-rabbit-border/50 shadow-md shadow-black/10 hover:shadow-lg hover:shadow-rabbit-lavender-500/10 transition-all"
             >
               <div className="flex items-start justify-between mb-2">
                 <div>
@@ -374,16 +409,11 @@ export default function Discover() {
           ))}
         </div>
       </div>
+      )}
 
-      {/* From Friends */}
+      {/* Social Tab */}
+      {activeTab === "social" && (
       <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-gray-200">👥 From Friends</h2>
-          <button className="text-xs text-rabbit-mint-400 hover:text-rabbit-mint-300 font-medium">
-            See all →
-          </button>
-        </div>
-
         <FilterChips
           filters={["All", "Recent", "Watching", "Bought"]}
           activeFilter={friendsFilter}
@@ -402,7 +432,8 @@ export default function Discover() {
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.6 + index * 0.1 }}
-              className="bg-rabbit-card/30 rounded-xl p-3 border border-rabbit-lavender-500/10 flex items-center gap-3"
+              whileHover={{ y: -2, scale: 1.005 }}
+              className="bg-rabbit-card/30 rounded-xl p-4 border border-rabbit-lavender-500/10 flex items-center gap-3 shadow-md shadow-black/10 hover:shadow-lg hover:shadow-rabbit-lavender-500/10 transition-all"
             >
               <div className="w-10 h-10 bg-gradient-to-br from-rabbit-lavender-500 to-rabbit-mint-500 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
                 {item.avatar}
@@ -430,16 +461,11 @@ export default function Discover() {
           ))}
         </div>
       </div>
+      )}
 
-      {/* Newsletters */}
+      {/* Newsletters Tab */}
+      {activeTab === "newsletters" && (
       <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-gray-200">📬 Newsletters</h2>
-          <button className="text-xs text-rabbit-mint-400 hover:text-rabbit-mint-300 font-medium">
-            See all →
-          </button>
-        </div>
-
         <FilterChips
           filters={["All", "My Stocks", "Market News", "Tech"]}
           activeFilter={newsletterFilter}
@@ -458,7 +484,8 @@ export default function Discover() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.9 + index * 0.1 }}
-              className="bg-rabbit-card rounded-2xl p-4 border border-rabbit-border"
+              whileHover={{ y: -2, scale: 1.005 }}
+              className="bg-rabbit-card rounded-2xl p-5 border border-rabbit-border shadow-md shadow-black/10 hover:shadow-lg hover:shadow-rabbit-mint-500/10 transition-all"
             >
               <div className="flex items-start justify-between mb-2">
                 <h4 className="text-xs font-medium text-rabbit-mint-400">{item.title}</h4>
@@ -473,16 +500,11 @@ export default function Discover() {
           ))}
         </div>
       </div>
+      )}
 
-      {/* News */}
+      {/* News Tab */}
+      {activeTab === "news" && (
       <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-gray-200">📰 News</h2>
-          <button className="text-xs text-rabbit-mint-400 hover:text-rabbit-mint-300 font-medium">
-            See all →
-          </button>
-        </div>
-
         <FilterChips
           filters={["All", "My Stocks", "Breaking", "Markets", "Tech"]}
           activeFilter={newsFilter}
@@ -501,7 +523,8 @@ export default function Discover() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 1.1 + index * 0.1 }}
-              className="bg-rabbit-card rounded-2xl p-4 border border-rabbit-border hover:border-rabbit-mint-500/30 transition-all"
+              whileHover={{ y: -2, scale: 1.005 }}
+              className="bg-rabbit-card rounded-2xl p-5 border border-rabbit-border hover:border-rabbit-mint-500/30 transition-all shadow-md shadow-black/10 hover:shadow-lg hover:shadow-rabbit-mint-500/10"
             >
               <div className="flex items-start gap-3 mb-2">
                 <div className="text-2xl flex-shrink-0">{item.logo}</div>
@@ -534,18 +557,17 @@ export default function Discover() {
           ))}
         </div>
       </div>
+      )}
 
-      {/* Calm empty state */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1.5 }}
-        className="text-center py-6"
-      >
-        <p className="text-sm text-gray-500">
-          That's all for now. Come back later for more 🌿
-        </p>
-      </motion.div>
+      {/* Stock Detail Modal */}
+      {selectedStock && (
+        <StockDetailModal
+          isOpen={true}
+          onClose={() => setSelectedStock(null)}
+          symbol={selectedStock.symbol}
+          name={selectedStock.name}
+        />
+      )}
     </div>
   );
 }

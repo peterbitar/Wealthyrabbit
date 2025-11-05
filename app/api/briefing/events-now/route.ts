@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { checkAbnormalEventsForUser } from '@/lib/abnormal-event-detector';
+import { checkAndNotifyUser } from '@/lib/basic-notifications';
 import { prisma } from '@/lib/prisma';
 import { sendTelegramMessage } from '@/lib/telegram';
 
@@ -44,26 +44,39 @@ export async function POST(request: NextRequest) {
     // Send intro message
     await sendTelegramMessage(
       user.telegramChatId,
-      '🐇 *WealthyRabbit scanning...*\n\nChecking price moves, news activity, and sentiment shifts across your holdings. Give me a sec.'
+      '🐇 Checking your holdings...'
     );
 
     // Small delay
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // Run abnormal event detection with quiet message enabled
-    // This ensures user gets feedback even if nothing interesting happened
-    await checkAbnormalEventsForUser(userId, true);
+    // Run basic notification check
+    const result = await checkAndNotifyUser(userId);
 
-    // Note: checkAbnormalEventsForUser handles sending messages
-    // It will send events if found, or a "markets are quiet" message if not
+    console.log(`✅ Basic notification check completed for user ${userId}`);
+    console.log(`   → Sent: ${result.sentCount}, Skipped: ${result.skippedCount}, Moving: ${result.movingStocks.join(', ')}`);
 
-    // Check if any events were actually sent by looking at logs
-    // For now, always return success since the function handles messaging
-    console.log(`✅ Abnormal event check completed for user ${userId}`);
+    // Send a summary message if nothing was sent
+    if (result.sentCount === 0) {
+      if (result.skippedCount > 0) {
+        // Stocks moved but already notified
+        await sendTelegramMessage(
+          user.telegramChatId,
+          `Already caught you up on ${result.movingStocks.join(', ')} earlier today. Markets are staying put otherwise 📊`
+        );
+      } else {
+        // No significant moves
+        await sendTelegramMessage(
+          user.telegramChatId,
+          'Markets are pretty calm right now. Nothing moving more than 3% in your portfolio 🌤️'
+        );
+      }
+    }
 
     return NextResponse.json({
       ok: true,
-      message: 'Event check complete! Check Telegram for any interesting moves.',
+      message: 'Event check complete! Check Telegram for updates.',
+      result,
     });
 
   } catch (error) {

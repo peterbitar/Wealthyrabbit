@@ -24,6 +24,7 @@
     "openai": "^6.6.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "recharts": "^3.3.0",
     "snoowrap": "^1.23.0",
     "supports-color": "^10.2.2",
     "twilio": "^5.10.3"

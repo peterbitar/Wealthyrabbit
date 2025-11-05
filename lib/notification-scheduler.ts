@@ -1,6 +1,6 @@
 import { prisma } from './prisma';
 import { sendTelegramMessage } from './telegram';
-import { runAbnormalEventCheck } from './abnormal-event-detector';
+import { runBasicNotificationCheck } from './basic-notifications';
 
 interface StockPrice {
   symbol: string;
@@ -474,9 +474,9 @@ export function startNotificationScheduler() {
     return;
   }
 
-  console.log('🚀 Starting abnormal event detection scheduler');
+  console.log('🚀 Starting basic notification scheduler');
   console.log(`   Check interval: ${CHECK_INTERVAL / 1000 / 60} minutes`);
-  console.log(`   Mode: Trigger-based (only abnormal events)`);
+  console.log(`   Mode: Simple (3%+ moves get notified)`);
   console.log(`   First check in: 30 seconds`);
 
   // Register cleanup handlers on first start
@@ -484,16 +484,16 @@ export function startNotificationScheduler() {
 
   // Run first check after 30 seconds (let server initialize)
   setTimeout(() => {
-    console.log('⏰ Running initial abnormal event check...');
+    console.log('⏰ Running initial basic notification check...');
     lastRunTime = new Date();
-    runAbnormalEventCheck();
+    runBasicNotificationCheck();
   }, 30000);
 
-  // Then run every 15 minutes
+  // Then run every 5 minutes
   notificationInterval = setInterval(() => {
-    console.log(`⏰ Running scheduled abnormal event check (${new Date().toLocaleString()})`);
+    console.log(`⏰ Running scheduled basic notification check (${new Date().toLocaleString()})`);
     lastRunTime = new Date();
-    runAbnormalEventCheck();
+    runBasicNotificationCheck();
   }, CHECK_INTERVAL);
 
   console.log('✅ Abnormal event scheduler started successfully');

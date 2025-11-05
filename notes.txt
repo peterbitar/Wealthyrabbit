@@ -38,3 +38,9 @@ Next Steps:
 - Implement stock price fetching
 - Add portfolio analytics
 - Deploy to production
+
+
+WealthyRabbit — Mini-Apps Roadmap
+
+Use the same repo. After each step: commit + git tag vx so you can always roll back.
+
