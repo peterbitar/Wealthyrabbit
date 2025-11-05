@@ -50,8 +50,8 @@ export async function GET(request: Request) {
 
     // Enrich holdings with current prices and social sentiment
     const enrichedHoldings = holdings.map((holding: any) => {
-      const price = priceMap.get(holding.symbol);
-      const social = socialMap.get(holding.symbol);
+      const price = priceMap.get(holding.symbol) as any;
+      const social = socialMap.get(holding.symbol) as any;
       const currentPrice = price?.currentPrice || holding.avgPrice;
       const totalValue = holding.shares * currentPrice;
       const totalCost = holding.shares * holding.avgPrice;
