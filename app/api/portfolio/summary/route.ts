@@ -39,17 +39,17 @@ export async function GET(request: Request) {
       },
     });
 
-    const priceMap = new Map(prices.map(p => [p.symbol, p]));
+    const priceMap = new Map(prices.map((p: any) => [p.symbol, p]));
 
     // Fetch social sentiment data for holdings
-    const holdingSymbols = holdings.map(h => h.symbol);
+    const holdingSymbols = holdings.map((h: any) => h.symbol);
     const socialData = await prisma.trendingStock.findMany({
       where: { symbol: { in: holdingSymbols } }
     });
-    const socialMap = new Map(socialData.map(s => [s.symbol, s]));
+    const socialMap = new Map(socialData.map((s: any) => [s.symbol, s]));
 
     // Enrich holdings with current prices and social sentiment
-    const enrichedHoldings = holdings.map(holding => {
+    const enrichedHoldings = holdings.map((holding: any) => {
       const price = priceMap.get(holding.symbol);
       const social = socialMap.get(holding.symbol);
       const currentPrice = price?.currentPrice || holding.avgPrice;
