@@ -94,7 +94,7 @@ export async function GET() {
 
     // Fetch current prices for all holdings
     const allSymbols = Array.from(
-      new Set(users.flatMap(u => u.holdings.map(h => h.symbol)))
+      new Set(users.flatMap((u: any) => u.holdings.map((h: any) => h.symbol)))
     );
 
     const prices = await prisma.stockPrice.findMany({
