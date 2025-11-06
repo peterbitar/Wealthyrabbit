@@ -9,6 +9,8 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   time: string;
+  id?: string;
+  read?: boolean;
 }
 
 const quickQuestions = [
@@ -31,7 +33,49 @@ export default function Ask() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Load in-app notifications on mount
+  useEffect(() => {
+    const userId = 'cmh503gjd00008okpn9ic7cia'; // TODO: Get from auth
+
+    const loadNotifications = async () => {
+      try {
+        const response = await fetch(`/api/notifications/in-app?userId=${userId}`);
+        const data = await response.json();
+
+        if (data.success && data.notifications) {
+          setMessages(data.notifications);
+        }
+      } catch (error) {
+        console.error('Error loading notifications:', error);
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+
+    const markAsRead = async () => {
+      try {
+        await fetch('/api/notifications/in-app', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId }),
+        });
+      } catch (error) {
+        console.error('Error marking notifications as read:', error);
+      }
+    };
+
+    loadNotifications();
+
+    // Mark all as read after a short delay (user has seen them)
+    const timer = setTimeout(() => {
+      markAsRead();
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
