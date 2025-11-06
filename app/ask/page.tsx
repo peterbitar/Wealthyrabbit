@@ -10,6 +10,7 @@ interface Message {
   content: string;
   voiceNotes?: string[];
   time: string;
+  createdAt?: string; // ISO timestamp for sorting
   id?: string;
   read?: boolean;
 }
@@ -82,9 +83,9 @@ export default function Ask() {
 
         // Sort all messages by timestamp (parse time string to sort chronologically)
         allMessages.sort((a, b) => {
-          // Use createdAt for system notifications, or parse time string for chat
-          const timeA = a.id ? new Date(a.time).getTime() : parseTimeString(a.time);
-          const timeB = b.id ? new Date(b.time).getTime() : parseTimeString(b.time);
+          // Use createdAt ISO string for system notifications, or parse time string for chat
+          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : parseTimeString(a.time);
+          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : parseTimeString(b.time);
           return timeA - timeB;
         });
 
@@ -261,12 +262,14 @@ export default function Ask() {
 
                 {/* Voice Notes or Text Content */}
                 {message.voiceNotes && message.voiceNotes.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {message.voiceNotes.map((url, i) => (
                       <audio
                         key={i}
                         controls
-                        className="w-full h-10"
+                        controlsList="nodownload"
+                        className="w-full"
+                        style={{ height: '40px', minHeight: '40px' }}
                         preload="metadata"
                       >
                         <source src={url} type="audio/ogg" />

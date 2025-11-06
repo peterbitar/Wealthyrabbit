@@ -23,6 +23,7 @@ export async function GET(request: Request) {
         minute: '2-digit',
         hour12: true,
       }),
+      createdAt: notif.createdAt.toISOString(), // Add full timestamp for sorting
       id: notif.id,
       read: notif.read,
     }));
