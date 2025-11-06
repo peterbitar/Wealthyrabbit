@@ -191,9 +191,18 @@ export default function Ask() {
                   </motion.div>
                 )}
 
-                {/* Voice Notes - Show if available */}
-                {message.voiceNotes && message.voiceNotes.length > 0 ? (
-                  <div className="mt-1 space-y-2">
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: index * 0.08 + 0.2 }}
+                  className="text-sm text-gray-200 leading-relaxed whitespace-pre-line"
+                >
+                  {message.content}
+                </motion.p>
+
+                {/* Voice Notes */}
+                {message.voiceNotes && message.voiceNotes.length > 0 && (
+                  <div className="mt-3 space-y-2">
                     {message.voiceNotes.map((url, i) => (
                       <audio
                         key={i}
@@ -206,16 +215,6 @@ export default function Ask() {
                       </audio>
                     ))}
                   </div>
-                ) : (
-                  /* Text Content - Only show if no voice notes */
-                  <motion.p
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: index * 0.08 + 0.2 }}
-                    className="text-sm text-gray-200 leading-relaxed whitespace-pre-line"
-                  >
-                    {message.content}
-                  </motion.p>
                 )}
 
                 <p className="text-xs text-gray-600 mt-2">{message.time}</p>
