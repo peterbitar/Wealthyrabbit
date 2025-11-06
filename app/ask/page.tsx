@@ -230,7 +230,7 @@ export default function Ask() {
       </motion.div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 pb-[180px] space-y-3">
+      <div className="flex-1 overflow-y-auto p-4 pb-[140px] space-y-3">
         <AnimatePresence mode="popLayout">
           {messages.map((message, index) => {
             // Check if this is the first new message
