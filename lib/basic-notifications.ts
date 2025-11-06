@@ -432,16 +432,28 @@ Decide format:
 One clean paragraph explaining everything.
 
 2️⃣ SUMMARY_AND_VOICE (if 2-4 stocks with nuance):
-- SUMMARY: 1-2 sentence overview (what the user will READ)
-- VOICE: Longer detailed explanation for voice note (45 seconds when spoken)
-The SUMMARY and VOICE should be DIFFERENT - summary is concise, voice has more detail.
+Generate TWO COMPLETELY DIFFERENT pieces of content:
+
+SUMMARY (what user READS before playing audio):
+- Ultra-concise: 1-2 short sentences MAX
+- Just the key takeaway/headline
+- Like a news headline or tweet
+- Example: "Tesla and Nvidia rallying on AI chip demand"
+
+VOICE (what user HEARS in the audio):
+- Longer detailed explanation (45 seconds when spoken)
+- Include sources, percentages, context, analysis
+- More conversational and thorough
+- Example: "Looks like Tesla jumped 4.2% and Nvidia climbed 3.8% today. Bloomberg is reporting increased demand for AI chips, and Reddit sentiment is extremely bullish with over 500 mentions across investing subreddits. The tech sector is seeing strong momentum as earnings season approaches..."
+
+DO NOT copy the same text for both! SUMMARY = headline, VOICE = full story.
 
 3️⃣ SUMMARY_TO_APP (if overwhelming, >4 stocks):
 Calm summary directing to app.
 
 IMPORTANT:
 - Use company names (Tesla, Apple) in voice notes for better audio clarity
-- If you choose SUMMARY_AND_VOICE, write TWO different pieces of content
+- SUMMARY must be 1-2 sentences, VOICE must be 3-5 sentences with details
 
 Respond ONLY in one of these formats:
 
@@ -452,9 +464,9 @@ OR
 
 FORMAT: SUMMARY_AND_VOICE
 SUMMARY:
-[1-2 sentence overview that user will read]
+[1-2 sentence headline - just the key takeaway]
 VOICE:
-[longer 45-second detailed explanation for voice note]
+[3-5 sentence detailed explanation with sources, percentages, and analysis]
 
 OR
 
