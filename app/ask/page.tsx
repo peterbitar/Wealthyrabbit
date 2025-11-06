@@ -193,7 +193,7 @@ export default function Ask() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col pb-20">
+    <div className="min-h-screen flex flex-col">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
@@ -366,7 +366,7 @@ export default function Ask() {
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.3 }}
-        className="p-4 border-t border-rabbit-border/50"
+        className="sticky bottom-0 z-10 p-4 border-t border-rabbit-border/50 bg-rabbit-bg/95 backdrop-blur-sm"
       >
         <div className="flex items-center gap-3 bg-rabbit-card border border-rabbit-border rounded-2xl p-3 focus-within:border-rabbit-lavender-500/50 transition-all">
           {/* Voice Note Toggle */}
