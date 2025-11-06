@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { checkAndNotifyUser } from '@/lib/basic-notifications';
 import { prisma } from '@/lib/prisma';
 import { sendTelegramMessage } from '@/lib/telegram';
+import { sendInAppNotification } from '@/lib/in-app-notifications';
 
 /**
  * POST /api/briefing/events-now
@@ -51,19 +52,21 @@ export async function POST(request: NextRequest) {
     console.log(`   → Sent: ${result.sentCount}, Skipped: ${result.skippedCount}, Moving: ${result.movingStocks.join(', ')}`);
 
     // Send a summary message if nothing was sent
-    if (result.sentCount === 0 && user.telegramChatId) {
+    if (result.sentCount === 0) {
       if (result.skippedCount > 0) {
         // Stocks moved but already notified
-        await sendTelegramMessage(
-          user.telegramChatId,
-          `Already caught you up on ${result.movingStocks.join(', ')} earlier today. Markets are staying put otherwise 📊`
-        );
+        const message = `Already caught you up on ${result.movingStocks.join(', ')} earlier today. Markets are staying put otherwise 📊`;
+        if (user.telegramChatId) {
+          await sendTelegramMessage(user.telegramChatId, message);
+        }
+        await sendInAppNotification(userId, message, []);
       } else {
         // No significant moves
-        await sendTelegramMessage(
-          user.telegramChatId,
-          'Markets are pretty calm right now. Nothing moving more than 3% in your portfolio 🌤️'
-        );
+        const message = 'Markets are pretty calm right now. Nothing moving more than 3% in your portfolio 🌤️';
+        if (user.telegramChatId) {
+          await sendTelegramMessage(user.telegramChatId, message);
+        }
+        await sendInAppNotification(userId, message, []);
       }
     }
 

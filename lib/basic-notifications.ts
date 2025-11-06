@@ -529,7 +529,11 @@ export async function checkAndNotifyUser(userId: string): Promise<{ sentCount: n
       },
     });
 
-    if (!user || !user.telegramChatId || !user.notificationSettings?.telegram) {
+    // Check if user has at least one notification channel enabled
+    const hasInApp = user?.notificationSettings?.inApp ?? true; // Default true for in-app
+    const hasTelegram = user?.telegramChatId && user?.notificationSettings?.telegram;
+
+    if (!user || (!hasInApp && !hasTelegram)) {
       console.log(`⏭️  User ${userId} not set up for notifications`);
       return { sentCount, skippedCount, movingStocks };
     }

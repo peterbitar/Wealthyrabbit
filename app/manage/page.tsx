@@ -2,8 +2,10 @@
 
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Manage() {
+  const router = useRouter();
   const userId = "cmh503gjd00008okpn9ic7cia"; // Hardcoded test user ID
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -142,8 +144,13 @@ export default function Manage() {
       if (response.ok) {
         setBriefingResult({
           success: true,
-          message: data.message || 'Events check sent to Telegram!',
+          message: data.message || 'Events check complete!',
         });
+
+        // Navigate to Ask page after a short delay to show success message
+        setTimeout(() => {
+          router.push('/ask');
+        }, 1500);
       } else {
         setBriefingResult({
           success: false,
@@ -227,14 +234,14 @@ export default function Manage() {
               Force-check for unusual events right now — big price moves, news surges, sentiment flips.
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              Only sends if something abnormal is happening. Otherwise tells you markets are quiet.
+              Results appear in the Ask page. Only alerts if something abnormal is happening.
             </p>
           </div>
         </div>
 
         <button
           onClick={sendBriefingNow}
-          disabled={sendingBriefing || !telegramChatId}
+          disabled={sendingBriefing}
           className="w-full px-6 py-3 bg-rabbit-mint-500 hover:bg-rabbit-mint-600 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-xl text-white font-medium transition-colors flex items-center justify-center gap-2"
         >
           {sendingBriefing ? (
@@ -256,9 +263,9 @@ export default function Manage() {
         </button>
 
         {!telegramChatId && (
-          <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-            <p className="text-xs text-yellow-400">
-              ⚠️  Link your Telegram account below to use this feature
+          <div className="mt-3 p-3 bg-rabbit-lavender-500/10 border border-rabbit-lavender-500/30 rounded-lg">
+            <p className="text-xs text-rabbit-lavender-300">
+              💡 Results will appear in the Ask page. Link Telegram below to get instant notifications too!
             </p>
           </div>
         )}
