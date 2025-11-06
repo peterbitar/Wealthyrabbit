@@ -371,7 +371,7 @@ FORMAT: SUMMARY_TO_APP
  */
 async function generateGroupedNotification(
   stocks: StockWithContext[]
-): Promise<{ textOnly?: string; teaser?: string; voiceNotes?: string[] }> {
+): Promise<{ textOnly?: string; summary?: string; voiceNotes?: string[] }> {
   try {
     // Build context for LLM with all stocks and their data
     let stocksContext = '';
@@ -415,11 +415,12 @@ ${stocksContext}
 Sources available: ${sourcesList}
 
 YOUR TASK:
-Group these stocks by theme (e.g., "AI sector rally", "tech volatility", "interest rate impact", etc.) and write ONE cohesive, conversational message that:
+Group these stocks by theme (e.g., "AI sector rally", "tech volatility", "interest rate impact", etc.) and write ONE cohesive, conversational message.
 
-1. Combines related movements into natural narrative
-2. Cross-references at least 2 different source types (e.g., Bloomberg + Reddit, CNBC + social sentiment)
-3. Keeps it VERY concise - 1-2 sentences max for teasers, 2-3 sentences for full messages
+CRITICAL RULES:
+1. When mentioning stocks, use EITHER the company name (Tesla, Apple) OR the symbol (TSLA, AAPL), NEVER both together
+2. Combines related movements into natural narrative
+3. Cross-references at least 2 different source types (e.g., Bloomberg + Reddit, CNBC + social sentiment)
 4. Uses conversational tone like a friend texting
 5. Start with a variation like "${toneStarter}..." for natural flow
 6. NEVER use "—" character (use commas instead)
@@ -430,14 +431,17 @@ Decide format:
 1️⃣ TEXT_ONLY (if 1-2 stocks, simple story):
 One clean paragraph explaining everything.
 
-2️⃣ TEXT_TEASER_AND_VOICE (if 2-4 stocks with nuance):
-Short teaser (1-2 sentences), then ONE voice note covering ALL stocks.
-Voice note must be ≤ 45 seconds when spoken.
+2️⃣ SUMMARY_AND_VOICE (if 2-4 stocks with nuance):
+- SUMMARY: 1-2 sentence overview (what the user will READ)
+- VOICE: Longer detailed explanation for voice note (45 seconds when spoken)
+The SUMMARY and VOICE should be DIFFERENT - summary is concise, voice has more detail.
 
 3️⃣ SUMMARY_TO_APP (if overwhelming, >4 stocks):
 Calm summary directing to app.
 
-IMPORTANT: If you choose TEXT_TEASER_AND_VOICE, record ONE voice note for all stocks, not one per stock.
+IMPORTANT:
+- Use company names (Tesla, Apple) in voice notes for better audio clarity
+- If you choose SUMMARY_AND_VOICE, write TWO different pieces of content
 
 Respond ONLY in one of these formats:
 
@@ -446,11 +450,11 @@ FORMAT: TEXT_ONLY
 
 OR
 
-FORMAT: TEXT_TEASER_AND_VOICE
-TEASER:
-[short teaser covering the theme]
+FORMAT: SUMMARY_AND_VOICE
+SUMMARY:
+[1-2 sentence overview that user will read]
 VOICE:
-[one 45-second voice note covering all stocks]
+[longer 45-second detailed explanation for voice note]
 
 OR
 
@@ -475,13 +479,13 @@ FORMAT: SUMMARY_TO_APP
           textOnly: textMatch[1].trim().replace(/—/g, ',')
         };
       }
-    } else if (responseText.includes('FORMAT: TEXT_TEASER_AND_VOICE')) {
-      const teaserMatch = responseText.match(/TEASER:\s*\n(.+?)(?=\n\s*VOICE:|$)/s);
+    } else if (responseText.includes('FORMAT: SUMMARY_AND_VOICE')) {
+      const summaryMatch = responseText.match(/SUMMARY:\s*\n(.+?)(?=\n\s*VOICE:|$)/s);
       const voiceMatch = responseText.match(/VOICE:\s*\n([\s\S]+?)$/);
 
-      if (teaserMatch && voiceMatch) {
+      if (summaryMatch && voiceMatch) {
         return {
-          teaser: teaserMatch[1].trim().replace(/—/g, ','),
+          summary: summaryMatch[1].trim().replace(/—/g, ','),
           voiceNotes: [voiceMatch[1].trim().replace(/—/g, ',')]
         };
       }
@@ -603,8 +607,8 @@ export async function checkAndNotifyUser(userId: string): Promise<{ sentCount: n
         }
         // Send to in-app (no voice notes)
         await sendInAppNotification(userId, notification.textOnly, []);
-      } else if (notification.teaser && notification.voiceNotes) {
-        console.log(`   → Sending grouped teaser + voice note`);
+      } else if (notification.summary && notification.voiceNotes) {
+        console.log(`   → Sending grouped summary + voice note`);
 
         // Generate and store voice notes for in-app
         console.log(`🎤 Generating ${notification.voiceNotes.length} voice note(s) for in-app...`);
@@ -614,13 +618,13 @@ export async function checkAndNotifyUser(userId: string): Promise<{ sentCount: n
         if (user.telegramChatId) {
           await sendNotificationWithVoiceNotes(
             user.telegramChatId,
-            notification.teaser,
+            notification.summary,
             notification.voiceNotes
           );
         }
 
-        // Send to in-app (teaser + voice note URLs)
-        await sendInAppNotification(userId, notification.teaser, voiceNoteUrls);
+        // Send to in-app (summary + voice note URLs)
+        await sendInAppNotification(userId, notification.summary, voiceNoteUrls);
       }
 
       // Record notifications for all stocks
