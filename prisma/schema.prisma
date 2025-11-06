@@ -136,11 +136,12 @@ model SentNotification {
 
 // In-app notifications (messages shown in Ask tab)
 model InAppNotification {
-  id        String   @id @default(cuid())
-  userId    String
-  message   String   @db.Text
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String
+  message    String   @db.Text
+  voiceNotes String[] // Array of voice note URLs
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

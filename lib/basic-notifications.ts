@@ -8,6 +8,7 @@
 import { prisma } from './prisma';
 import { sendNotificationWithVoiceNotes, sendTelegramMessage } from './telegram';
 import { sendInAppNotification } from './in-app-notifications';
+import { generateAndStoreVoiceNotes } from './voice-notes';
 import OpenAI from 'openai';
 
 function getOpenAI() {
@@ -596,10 +597,15 @@ export async function checkAndNotifyUser(userId: string): Promise<{ sentCount: n
         if (user.telegramChatId) {
           await sendTelegramMessage(user.telegramChatId, notification.textOnly);
         }
-        // Send to in-app
-        await sendInAppNotification(userId, notification.textOnly);
+        // Send to in-app (no voice notes)
+        await sendInAppNotification(userId, notification.textOnly, []);
       } else if (notification.teaser && notification.voiceNotes) {
         console.log(`   → Sending grouped teaser + voice note`);
+
+        // Generate and store voice notes for in-app
+        console.log(`🎤 Generating ${notification.voiceNotes.length} voice note(s) for in-app...`);
+        const voiceNoteUrls = await generateAndStoreVoiceNotes(notification.voiceNotes);
+
         // Send to Telegram if connected (with voice notes)
         if (user.telegramChatId) {
           await sendNotificationWithVoiceNotes(
@@ -608,9 +614,9 @@ export async function checkAndNotifyUser(userId: string): Promise<{ sentCount: n
             notification.voiceNotes
           );
         }
-        // Send to in-app (combine teaser + voice notes as text)
-        const inAppMessage = `${notification.teaser}\n\n${notification.voiceNotes.join('\n\n')}`;
-        await sendInAppNotification(userId, inAppMessage);
+
+        // Send to in-app (teaser + voice note URLs)
+        await sendInAppNotification(userId, notification.teaser, voiceNoteUrls);
       }
 
       // Record notifications for all stocks

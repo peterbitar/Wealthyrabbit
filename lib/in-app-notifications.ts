@@ -9,6 +9,7 @@ export interface InAppNotification {
   id: string;
   userId: string;
   message: string;
+  voiceNotes: string[];
   read: boolean;
   createdAt: Date;
 }
@@ -18,18 +19,20 @@ export interface InAppNotification {
  */
 export async function sendInAppNotification(
   userId: string,
-  message: string
+  message: string,
+  voiceNotes: string[] = []
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await prisma.inAppNotification.create({
       data: {
         userId,
         message,
+        voiceNotes,
         read: false,
       },
     });
 
-    console.log(`📱 In-app notification sent to user ${userId}`);
+    console.log(`📱 In-app notification sent to user ${userId}${voiceNotes.length > 0 ? ` with ${voiceNotes.length} voice note(s)` : ''}`);
     return { success: true };
   } catch (error: any) {
     console.error('Error sending in-app notification:', error);

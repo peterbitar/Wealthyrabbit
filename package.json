@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.18.0",
+    "@vercel/blob": "^2.0.0",
     "framer-motion": "^12.23.24",
     "next": "^15.0.0",
     "node-telegram-bot-api": "^0.66.0",

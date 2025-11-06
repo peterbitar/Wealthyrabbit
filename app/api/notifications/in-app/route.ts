@@ -17,6 +17,7 @@ export async function GET(request: Request) {
     const messages = notifications.map(notif => ({
       role: 'assistant' as const,
       content: notif.message,
+      voiceNotes: notif.voiceNotes || [],
       time: new Date(notif.createdAt).toLocaleTimeString('en-US', {
         hour: 'numeric',
         minute: '2-digit',

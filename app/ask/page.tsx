@@ -8,6 +8,7 @@ import Button from "@/components/Button";
 interface Message {
   role: "user" | "assistant";
   content: string;
+  voiceNotes?: string[];
   time: string;
   id?: string;
   read?: boolean;
@@ -198,6 +199,23 @@ export default function Ask() {
                 >
                   {message.content}
                 </motion.p>
+
+                {/* Voice Notes */}
+                {message.voiceNotes && message.voiceNotes.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {message.voiceNotes.map((url, i) => (
+                      <audio
+                        key={i}
+                        controls
+                        className="w-full h-10"
+                        preload="metadata"
+                      >
+                        <source src={url} type="audio/ogg" />
+                        Your browser does not support audio playback.
+                      </audio>
+                    ))}
+                  </div>
+                )}
 
                 <p className="text-xs text-gray-600 mt-2">{message.time}</p>
               </motion.div>
