@@ -54,6 +54,7 @@ export default function Ask() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [voiceNoteMode, setVoiceNoteMode] = useState(false);
   const [lastSeenTimestamp, setLastSeenTimestamp] = useState<number | null>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load in-app notifications and chat history on mount
@@ -400,8 +401,9 @@ export default function Ask() {
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.3 }}
-        className="fixed bottom-[68px] left-0 right-0 z-10 p-4 border-t border-rabbit-border/50 bg-rabbit-bg backdrop-blur-sm max-w-lg mx-auto"
+        transition={{ delay: 0.3, duration: 0.2 }}
+        className="fixed left-0 right-0 z-[60] p-4 border-t border-rabbit-border/50 bg-rabbit-bg backdrop-blur-sm max-w-lg mx-auto transition-all duration-200"
+        style={{ bottom: keyboardVisible ? 0 : 68 }}
       >
         <div className="flex items-center gap-3 bg-rabbit-card border border-rabbit-border rounded-2xl p-3 focus-within:border-rabbit-lavender-500/50 transition-all">
           {/* Voice Note Toggle */}
@@ -427,6 +429,8 @@ export default function Ask() {
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
+            onFocus={() => setKeyboardVisible(true)}
+            onBlur={() => setKeyboardVisible(false)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && inputValue.trim()) {
                 sendMessage(inputValue);
