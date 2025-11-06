@@ -369,8 +369,8 @@ export default function Manage() {
           {channels.telegram && (
             <div className="pt-2 space-y-3">
               {!telegramChatId ? (
-                <div className="bg-rabbit-dark/50 border border-rabbit-border rounded-lg p-4">
-                  <div className="text-center mb-3">
+                <div className="bg-rabbit-dark/50 border border-rabbit-border rounded-lg p-4 space-y-3">
+                  <div className="text-center">
                     <span className="text-3xl block mb-2">📱</span>
                     <p className="text-sm font-medium text-gray-200 mb-1">
                       Connect Telegram
@@ -380,23 +380,39 @@ export default function Manage() {
                     </p>
                   </div>
 
-                  <a
-                    href="https://t.me/WealthyRabbit_bot?start=connect"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block w-full px-4 py-3 bg-rabbit-mint-500 hover:bg-rabbit-mint-600 rounded-lg text-white text-sm font-medium transition-colors text-center"
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.161l-1.84 8.673c-.138.633-.5.784-.997.488l-2.755-2.03-1.33 1.279c-.147.147-.27.27-.554.27l.197-2.8 5.09-4.6c.22-.197-.048-.308-.342-.11l-6.29 3.96-2.71-.844c-.59-.185-.602-.59.124-.875l10.595-4.086c.492-.185.922.11.762.874z"/>
-                      </svg>
-                      Open Bot & Connect
-                    </div>
-                  </a>
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-gray-300">Step 1: Get your Chat ID</p>
+                    <a
+                      href="https://t.me/WealthyRabbit_bot"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block w-full px-4 py-2.5 bg-rabbit-mint-500 hover:bg-rabbit-mint-600 rounded-lg text-white text-sm font-medium transition-colors text-center"
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.161l-1.84 8.673c-.138.633-.5.784-.997.488l-2.755-2.03-1.33 1.279c-.147.147-.27.27-.554.27l.197-2.8 5.09-4.6c.22-.197-.048-.308-.342-.11l-6.29 3.96-2.71-.844c-.59-.185-.602-.59.124-.875l10.595-4.086c.492-.185.922.11.762.874z"/>
+                        </svg>
+                        Open Bot & Send /start
+                      </div>
+                    </a>
+                    <p className="text-[11px] text-gray-500">
+                      The bot will send you your Chat ID
+                    </p>
+                  </div>
 
-                  <p className="text-xs text-gray-500 text-center mt-2">
-                    Just click "Start" in Telegram and you're done!
-                  </p>
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-gray-300">Step 2: Enter your Chat ID</p>
+                    <input
+                      type="text"
+                      value={telegramChatId}
+                      onChange={(e) => setTelegramChatId(e.target.value)}
+                      placeholder="Paste your Chat ID here"
+                      className="w-full px-3 py-2 bg-rabbit-dark border border-rabbit-border focus:border-rabbit-mint-500 rounded-lg text-gray-100 text-sm placeholder-gray-500 focus:outline-none transition-all"
+                    />
+                    <p className="text-[11px] text-gray-500">
+                      Settings auto-save as you type
+                    </p>
+                  </div>
                 </div>
               ) : (
                 <div>
