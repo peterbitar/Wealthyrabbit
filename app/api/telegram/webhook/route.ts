@@ -106,9 +106,23 @@ export async function POST(request: Request) {
           console.log('📤 Send result:', result);
         }
       } else if (messageText && !messageText.startsWith('/')) {
-        // Handle regular messages - check if asking for chat ID
+        // Handle regular messages
         const lowerText = messageText.toLowerCase();
-        if (lowerText.includes('chat id') || lowerText.includes('chatid') || lowerText === 'id') {
+
+        // Check if user exists in database
+        const user = await prisma.user.findFirst({
+          where: { telegramChatId: chatId },
+        });
+
+        if (!user) {
+          // New user - always send Chat ID and welcome
+          console.log('👋 New user detected - sending welcome with Chat ID');
+          await sendTelegramMessage(
+            chatId,
+            `🐇 *Welcome to WealthyRabbit!*\n\n*Your Chat ID:*\n\`${chatId}\`\n\nTo connect:\n1. Copy your Chat ID above (tap to copy)\n2. Go to wealthyrabbit.vercel.app\n3. Open the Manage page\n4. Enable Telegram notifications\n5. Paste your Chat ID in the input field\n\n*What You'll Get:*\n• 📊 Real-time price alerts\n• 📰 Breaking market news\n• 🎯 Daily portfolio summaries\n• 💬 Ask me anything about stocks!\n\n🐇 *Let's make some money!*`
+          );
+        } else if (lowerText.includes('chat id') || lowerText.includes('chatid') || lowerText === 'id') {
+          // Existing user asking for Chat ID
           console.log('📋 User asking for Chat ID');
           await sendTelegramMessage(
             chatId,
