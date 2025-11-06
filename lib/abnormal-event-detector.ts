@@ -799,7 +799,9 @@ export async function checkAbnormalEventsForUser(userId: string, sendQuietMessag
         if (user.telegramChatId) {
           await sendTelegramMessageWithDelay(user.telegramChatId, quietMessage);
         }
-        await sendInAppNotification(userId, quietMessage);
+        console.log('📱 Sending quiet message to in-app...');
+        const quietResult = await sendInAppNotification(userId, quietMessage);
+        console.log('📱 Quiet message result:', quietResult);
         updateLastMessageTime(userId);
       }
       return;
@@ -816,7 +818,9 @@ export async function checkAbnormalEventsForUser(userId: string, sendQuietMessag
       if (user.telegramChatId) {
         await sendTelegramMessageWithDelay(user.telegramChatId, summary);
       }
-      await sendInAppNotification(userId, summary);
+      console.log('📱 Sending summary to in-app...');
+      const summaryResult = await sendInAppNotification(userId, summary);
+      console.log('📱 Summary result:', summaryResult);
 
       // Wait a bit before sending details
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -849,7 +853,13 @@ export async function checkAbnormalEventsForUser(userId: string, sendQuietMessag
 
       // Send to in-app (combine teaser + voice notes as text)
       const inAppMessage = `${teaser}\n\n${voiceNotes.join('\n\n')}`;
-      await sendInAppNotification(userId, inAppMessage);
+      console.log(`📱 Attempting to send in-app notification for ${event.symbol}...`);
+      const inAppResult = await sendInAppNotification(userId, inAppMessage);
+      if (inAppResult.success) {
+        console.log(`✅ In-app notification sent successfully for ${event.symbol}`);
+      } else {
+        console.error(`❌ Failed to send in-app notification for ${event.symbol}:`, inAppResult.error);
+      }
 
       // Mark as sent
       const signature = generateEventSignature(event.symbol, event.type, 0);
