@@ -419,11 +419,11 @@ Group these stocks by theme (e.g., "AI sector rally", "tech volatility", "intere
 
 1. Combines related movements into natural narrative
 2. Cross-references at least 2 different source types (e.g., Bloomberg + Reddit, CNBC + social sentiment)
-3. Keeps it under 2-3 paragraphs
+3. Keeps it VERY concise - 1-2 sentences max for teasers, 2-3 sentences for full messages
 4. Uses conversational tone like a friend texting
 5. Start with a variation like "${toneStarter}..." for natural flow
 6. NEVER use "—" character (use commas instead)
-7. End with "Check the app for the full view and source breakdown."
+7. Don't add "Check the app" or similar call-to-actions at the end
 
 Decide format:
 
@@ -496,7 +496,7 @@ FORMAT: SUMMARY_TO_APP
 
     // Fallback: Create simple grouped message
     const symbols = stocks.map(s => s.symbol).join(', ');
-    const fallbackMessage = `Your holdings are moving today: ${symbols}. ${toneStarter} the sources, there's some interesting activity happening. Check the app for the full view and source breakdown.`;
+    const fallbackMessage = `Your holdings are moving today: ${symbols}. ${toneStarter} the sources, there's some interesting activity happening.`;
 
     return { textOnly: fallbackMessage };
   } catch (error) {
