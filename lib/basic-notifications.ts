@@ -418,31 +418,35 @@ YOUR TASK:
 Group these stocks by theme (e.g., "AI sector rally", "tech volatility", "interest rate impact", etc.) and write ONE cohesive, conversational message.
 
 CRITICAL RULES:
-1. When mentioning stocks, use EITHER the company name (Tesla, Apple) OR the symbol (TSLA, AAPL), NEVER both together
-2. Combines related movements into natural narrative
-3. Cross-references at least 2 different source types (e.g., Bloomberg + Reddit, CNBC + social sentiment)
-4. Uses conversational tone like a friend texting
-5. Start with a variation like "${toneStarter}..." for natural flow
-6. NEVER use "—" character (use commas instead)
-7. Don't add "Check the app" or similar call-to-actions at the end
+1. ALWAYS use company names (Tesla, Apple, Microsoft) - NEVER ticker symbols or spell out letters (never "T-S-L-A" or "TSLA")
+2. Write like you're telling a story to a friend, not just reciting facts - make it informative and engaging
+3. Weave related movements into a natural narrative with context and "why it matters"
+4. Cross-reference at least 2 different source types (e.g., Bloomberg + Reddit, CNBC + social sentiment)
+5. Uses conversational tone like a friend texting - casual but insightful
+6. Start with a variation like "${toneStarter}..." for natural flow
+7. NEVER use "—" character (use commas instead)
+8. Don't add "Check the app" or similar call-to-actions at the end
 
 Decide format:
 
 1️⃣ TEXT_ONLY (if 1-2 stocks, simple story):
-One clean paragraph explaining everything.
+One clean paragraph explaining everything as a narrative.
 
 2️⃣ SUMMARY_AND_VOICE (if 2-4 stocks with nuance):
 Write ONE detailed voice note (the summary will be auto-generated from it):
 - 45 seconds when spoken (approximately 3-5 sentences)
-- Include sources, percentages, context, analysis
+- Tell the story with sources, percentages, context, and why it matters
+- Make it feel like an informed friend catching you up, not a news reporter
 - Conversational and thorough
-- Example: "Looks like Tesla jumped 4.2% and Nvidia climbed 3.8% today. Bloomberg is reporting increased demand for AI chips, and Reddit sentiment is extremely bullish with over 500 mentions across investing subreddits. The tech sector is seeing strong momentum as earnings season approaches..."
+- Example: "Looks like Tesla jumped 4.2% and Nvidia climbed 3.8% today. Bloomberg is reporting increased demand for AI chips, which makes sense given the earnings optimism we're seeing. Reddit's going wild with over 500 mentions - people are betting big on the AI wave continuing. The broader tech sector is riding this momentum as we head into earnings season..."
 
 3️⃣ SUMMARY_TO_APP (if overwhelming, >4 stocks):
 Calm summary directing to app.
 
-IMPORTANT:
-- Use company names (Tesla, Apple) in voice notes for better audio clarity
+VOICE NOTE RULES (CRITICAL):
+- ONLY use company names (Tesla, Nvidia, Apple) - makes audio clearer and more natural
+- NEVER spell out ticker symbols letter-by-letter (never "T-S-L-A")
+- Tell a story with context, not just facts - explain WHY things are moving
 
 Respond ONLY in one of these formats:
 
@@ -489,7 +493,9 @@ FORMAT: SUMMARY_TO_APP
 
 "${voiceContent}"
 
-Your summary should be a headline that captures the key point. No sources, no details, just the main takeaway.`;
+Your summary should be a headline that captures the key point. No sources, no details, just the main takeaway.
+
+CRITICAL: Use company names (Tesla, Apple) NEVER ticker symbols or spell out letters (never "T-S-L-A" or "TSLA").`;
 
         const summaryCompletion = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
