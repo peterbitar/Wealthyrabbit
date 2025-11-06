@@ -370,47 +370,33 @@ export default function Manage() {
             <div className="pt-2 space-y-3">
               {!telegramChatId ? (
                 <div className="bg-rabbit-dark/50 border border-rabbit-border rounded-lg p-4">
-                  <div className="flex items-start gap-3 mb-3">
-                    <span className="text-2xl">📱</span>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-200 mb-1">
-                        Link Your Telegram
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        Connect in 2 simple steps
-                      </p>
-                    </div>
+                  <div className="text-center mb-3">
+                    <span className="text-3xl block mb-2">📱</span>
+                    <p className="text-sm font-medium text-gray-200 mb-1">
+                      Connect Telegram
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      Get instant stock alerts on your phone
+                    </p>
                   </div>
 
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-2">
-                      <span className="flex-shrink-0 w-5 h-5 bg-rabbit-mint-500 text-rabbit-dark rounded-full flex items-center justify-center text-xs font-bold">
-                        1
-                      </span>
-                      <div className="flex-1">
-                        <p className="text-xs text-gray-300 mb-1">
-                          Open Telegram and search for your bot
-                        </p>
-                      </div>
+                  <a
+                    href="https://t.me/WealthyRabbit_bot?start=connect"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full px-4 py-3 bg-rabbit-mint-500 hover:bg-rabbit-mint-600 rounded-lg text-white text-sm font-medium transition-colors text-center"
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.161l-1.84 8.673c-.138.633-.5.784-.997.488l-2.755-2.03-1.33 1.279c-.147.147-.27.27-.554.27l.197-2.8 5.09-4.6c.22-.197-.048-.308-.342-.11l-6.29 3.96-2.71-.844c-.59-.185-.602-.59.124-.875l10.595-4.086c.492-.185.922.11.762.874z"/>
+                      </svg>
+                      Open Bot & Connect
                     </div>
+                  </a>
 
-                    <div className="flex items-start gap-2">
-                      <span className="flex-shrink-0 w-5 h-5 bg-rabbit-mint-500 text-rabbit-dark rounded-full flex items-center justify-center text-xs font-bold">
-                        2
-                      </span>
-                      <div className="flex-1">
-                        <p className="text-xs text-gray-300 mb-2">
-                          Send this message to your bot:
-                        </p>
-                        <div className="bg-rabbit-dark border border-rabbit-border rounded px-3 py-2 font-mono text-xs text-rabbit-mint-400">
-                          /start {userId}
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Your account will be linked automatically!
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                  <p className="text-xs text-gray-500 text-center mt-2">
+                    Just click "Start" in Telegram and you're done!
+                  </p>
                 </div>
               ) : (
                 <div>
