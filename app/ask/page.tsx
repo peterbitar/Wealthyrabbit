@@ -262,25 +262,42 @@ export default function Ask() {
 
                 {/* Voice Notes or Text Content */}
                 {message.voiceNotes && message.voiceNotes.length > 0 ? (
-                  <div className="space-y-3 w-full">
+                  <div className="space-y-2 w-full">
                     {message.voiceNotes.map((url, i) => (
-                      <div key={i} className="w-full">
+                      <div key={i} className="w-full bg-rabbit-lavender-500/10 rounded-lg p-2 flex items-center gap-2">
                         <audio
-                          controls
-                          controlsList="nodownload noplaybackrate"
-                          className="w-full rounded-lg"
-                          style={{
-                            height: '54px',
-                            minHeight: '54px',
-                            maxWidth: '100%',
-                            display: 'block'
-                          }}
+                          id={`audio-${message.time}-${i}`}
                           preload="metadata"
+                          className="hidden"
                         >
                           <source src={url} type="audio/ogg" />
                           <source src={url} type="audio/mpeg" />
-                          Your browser does not support audio playback.
                         </audio>
+                        <button
+                          onClick={(e) => {
+                            const audio = document.getElementById(`audio-${message.time}-${i}`) as HTMLAudioElement;
+                            if (audio) {
+                              if (audio.paused) {
+                                audio.play();
+                                e.currentTarget.innerHTML = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>';
+                              } else {
+                                audio.pause();
+                                e.currentTarget.innerHTML = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+                              }
+                            }
+                          }}
+                          className="w-8 h-8 rounded-full bg-rabbit-lavender-500 flex items-center justify-center hover:bg-rabbit-lavender-600 transition-colors flex-shrink-0"
+                        >
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z"/>
+                          </svg>
+                        </button>
+                        <div className="flex-1 flex items-center gap-2">
+                          <div className="flex-1 h-1 bg-gray-600 rounded-full overflow-hidden">
+                            <div className="h-full bg-rabbit-lavender-500 rounded-full" style={{ width: '0%' }}></div>
+                          </div>
+                          <span className="text-xs text-gray-400 font-mono">0:00</span>
+                        </div>
                       </div>
                     ))}
                   </div>
