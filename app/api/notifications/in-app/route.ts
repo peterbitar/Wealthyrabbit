@@ -13,6 +13,9 @@ export async function GET(request: Request) {
   try {
     const notifications = await getAllNotifications(userId);
 
+    // Count unread notifications
+    const unreadCount = notifications.filter(notif => !notif.read).length;
+
     // Format for the Ask page (as messages)
     const messages = notifications.map(notif => ({
       role: 'assistant' as const,
@@ -31,6 +34,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       notifications: messages,
+      unreadCount,
     });
   } catch (error: any) {
     console.error('Error fetching in-app notifications:', error);

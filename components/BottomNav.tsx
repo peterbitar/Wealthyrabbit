@@ -2,11 +2,41 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const isActive = (path: string) => pathname === path;
+
+  // Check for unread messages
+  useEffect(() => {
+    const checkUnread = async () => {
+      try {
+        const userId = 'cmh503gjd00008okpn9ic7cia'; // TODO: Get from auth
+        const response = await fetch(`/api/notifications/in-app?userId=${userId}`);
+        const data = await response.json();
+
+        if (data.success) {
+          setUnreadCount(data.unreadCount || 0);
+        }
+      } catch (error) {
+        console.error('Error fetching unread count:', error);
+      }
+    };
+
+    checkUnread();
+
+    // Check every 10 seconds for updates (only when not on Ask page)
+    const interval = setInterval(() => {
+      if (pathname !== '/ask') {
+        checkUnread();
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [pathname]);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-rabbit-card border-t border-rabbit-border z-50">
@@ -71,12 +101,18 @@ export default function BottomNav() {
           {/* Ask */}
           <Link
             href="/ask"
-            className={`flex flex-col items-center gap-1 transition-all min-h-[44px] min-w-[44px] justify-center ${
+            className={`flex flex-col items-center gap-1 transition-all min-h-[44px] min-w-[44px] justify-center relative ${
               isActive("/ask")
                 ? "text-rabbit-lavender-400"
                 : "text-gray-400 hover:text-gray-300"
             }`}
           >
+            {/* Unread Badge */}
+            {unreadCount > 0 && !isActive("/ask") && (
+              <div className="absolute top-0 right-0 w-5 h-5 bg-rabbit-lavender-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white border-2 border-rabbit-card">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </div>
+            )}
             <svg
               className="w-6 h-6"
               fill="none"

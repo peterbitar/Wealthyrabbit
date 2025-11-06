@@ -53,6 +53,7 @@ export default function Ask() {
   const [isTyping, setIsTyping] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [voiceNoteMode, setVoiceNoteMode] = useState(false);
+  const [lastSeenTimestamp, setLastSeenTimestamp] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load in-app notifications and chat history on mount
@@ -61,6 +62,11 @@ export default function Ask() {
 
     const loadNotifications = async () => {
       try {
+        // Load last seen timestamp
+        const savedLastSeen = localStorage.getItem('wealthyrabbit-last-seen');
+        const lastSeen = savedLastSeen ? parseInt(savedLastSeen) : null;
+        setLastSeenTimestamp(lastSeen);
+
         // Load system notifications from database
         const response = await fetch(`/api/notifications/in-app?userId=${userId}`);
         const data = await response.json();
@@ -92,6 +98,10 @@ export default function Ask() {
         });
 
         setMessages(allMessages);
+
+        // Update last seen timestamp to now
+        const now = Date.now();
+        localStorage.setItem('wealthyrabbit-last-seen', now.toString());
       } catch (error) {
         console.error('Error loading notifications:', error);
       } finally {
@@ -221,23 +231,46 @@ export default function Ask() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         <AnimatePresence mode="popLayout">
-          {messages.map((message, index) => (
-            <motion.div
-              key={index}
-              layout
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{
-                type: "spring",
-                damping: 25,
-                stiffness: 300,
-                delay: index * 0.08
-              }}
-              className={`flex ${
-                message.role === "user" ? "justify-end" : "justify-start"
-              }`}
-            >
+          {messages.map((message, index) => {
+            // Check if this is the first new message
+            const messageTime = message.createdAt ? new Date(message.createdAt).getTime() : parseTimeString(message.time);
+            const isFirstNewMessage = lastSeenTimestamp !== null &&
+                                      messageTime > lastSeenTimestamp &&
+                                      (index === 0 ||
+                                       (messages[index - 1].createdAt ? new Date(messages[index - 1].createdAt).getTime() : parseTimeString(messages[index - 1].time)) <= lastSeenTimestamp);
+
+            return (
+              <React.Fragment key={index}>
+                {/* New Messages Divider */}
+                {isFirstNewMessage && (
+                  <motion.div
+                    initial={{ opacity: 0, scaleX: 0 }}
+                    animate={{ opacity: 1, scaleX: 1 }}
+                    className="flex items-center gap-3 my-4"
+                  >
+                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-rabbit-lavender-500/50 to-transparent" />
+                    <span className="text-xs font-medium text-rabbit-lavender-400 px-3 py-1 bg-rabbit-lavender-500/10 rounded-full border border-rabbit-lavender-500/30">
+                      New Messages
+                    </span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-rabbit-lavender-500/50 via-transparent to-transparent" />
+                  </motion.div>
+                )}
+
+                <motion.div
+                  layout
+                  initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{
+                    type: "spring",
+                    damping: 25,
+                    stiffness: 300,
+                    delay: index * 0.08
+                  }}
+                  className={`flex ${
+                    message.role === "user" ? "justify-end" : "justify-start"
+                  }`}
+                >
               <motion.div
                 whileHover={{ scale: 1.02 }}
                 className={`max-w-[80%] ${
@@ -292,7 +325,9 @@ export default function Ask() {
                 <p className="text-xs text-gray-600 mt-2">{message.time}</p>
               </motion.div>
             </motion.div>
-          ))}
+              </React.Fragment>
+            );
+          })}
 
           {/* Typing Indicator */}
           {isTyping && (
