@@ -5,11 +5,14 @@ export async function GET() {
   try {
     const prisma = new PrismaClient();
 
-    // Create a test user
+    // Create a test user with a fixed ID to match the frontend
+    const testUserId = 'cmh503gjd00008okpn9ic7cia';
+
     const user = await prisma.user.upsert({
       where: { email: 'test@wealthyrabbit.com' },
-      update: {},
+      update: { id: testUserId },
       create: {
+        id: testUserId,
         email: 'test@wealthyrabbit.com',
         name: 'Test User',
         telegramChatId: '123456789',
