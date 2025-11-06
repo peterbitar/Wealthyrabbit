@@ -262,8 +262,22 @@ export default function Ask() {
                   </motion.div>
                 )}
 
-                {/* Voice Notes or Text Content */}
-                {message.voiceNotes && message.voiceNotes.length > 0 ? (
+                {/* Text Content - always shown as context/summary */}
+                {message.content && (
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: index * 0.08 + 0.2 }}
+                    className={`text-sm text-gray-200 leading-relaxed whitespace-pre-line ${
+                      message.voiceNotes && message.voiceNotes.length > 0 ? 'mb-3' : ''
+                    }`}
+                  >
+                    {message.content}
+                  </motion.p>
+                )}
+
+                {/* Voice Notes */}
+                {message.voiceNotes && message.voiceNotes.length > 0 && (
                   <div className="space-y-2 w-full">
                     {message.voiceNotes.map((url, i) => (
                       <AudioPlayer
@@ -273,15 +287,6 @@ export default function Ask() {
                       />
                     ))}
                   </div>
-                ) : (
-                  <motion.p
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: index * 0.08 + 0.2 }}
-                    className="text-sm text-gray-200 leading-relaxed whitespace-pre-line"
-                  >
-                    {message.content}
-                  </motion.p>
                 )}
 
                 <p className="text-xs text-gray-600 mt-2">{message.time}</p>
