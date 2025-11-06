@@ -117,11 +117,25 @@ export async function GET() {
       );
     `);
 
+    // Create in_app_notifications table
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "in_app_notifications" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "userId" TEXT NOT NULL,
+        "message" TEXT NOT NULL,
+        "read" BOOLEAN NOT NULL DEFAULT false,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "in_app_notifications_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE
+      );
+    `);
+
     // Create indexes
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "holdings_userId_idx" ON "holdings"("userId");`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "watchlist_userId_idx" ON "watchlist"("userId");`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "sent_notifications_userId_symbol_eventType_idx" ON "sent_notifications"("userId", "symbol", "eventType");`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "sent_notifications_expiresAt_idx" ON "sent_notifications"("expiresAt");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "in_app_notifications_userId_read_idx" ON "in_app_notifications"("userId", "read");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "in_app_notifications_userId_createdAt_idx" ON "in_app_notifications"("userId", "createdAt");`);
 
     await prisma.$disconnect();
 

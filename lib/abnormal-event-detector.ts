@@ -7,6 +7,7 @@
 
 import { prisma } from './prisma';
 import { sendTelegramMessage, sendTelegramMessageWithDelay, sendNotificationWithVoiceNotes } from './telegram';
+import { sendInAppNotification } from './in-app-notifications';
 import OpenAI from 'openai';
 
 // Track sent events to prevent duplicates (userId -> Set of event signatures)
@@ -793,7 +794,12 @@ export async function checkAbnormalEventsForUser(userId: string, sendQuietMessag
       if (sendQuietMessage) {
         const greeting = shouldGreetUser ? 'Hey, ' : '';
         const quietMessage = `${greeting}just checked your portfolio. Everything's moving within pretty normal ranges today, nothing jumping out as super interesting right now.\n\nI'm keeping an eye on things though. Check the app for a deep dive.`;
-        await sendTelegramMessageWithDelay(user.telegramChatId, quietMessage);
+
+        // Send to both Telegram and in-app
+        if (user.telegramChatId) {
+          await sendTelegramMessageWithDelay(user.telegramChatId, quietMessage);
+        }
+        await sendInAppNotification(userId, quietMessage);
         updateLastMessageTime(userId);
       }
       return;
@@ -805,7 +811,12 @@ export async function checkAbnormalEventsForUser(userId: string, sendQuietMessag
     if (newEvents.length >= 2) {
       console.log(`📊 Generating summary for ${newEvents.length} events`);
       const summary = await generateMultiEventSummary(newEvents, shouldGreetUser);
-      await sendTelegramMessageWithDelay(user.telegramChatId, summary);
+
+      // Send to both Telegram and in-app
+      if (user.telegramChatId) {
+        await sendTelegramMessageWithDelay(user.telegramChatId, summary);
+      }
+      await sendInAppNotification(userId, summary);
 
       // Wait a bit before sending details
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -831,8 +842,14 @@ export async function checkAbnormalEventsForUser(userId: string, sendQuietMessag
         voiceNotes[0] = voiceNotes[0].replace(/^(Hey!|Yo!|Hi!)\s*/, '');
       }
 
-      // Send notification with voice notes
-      await sendNotificationWithVoiceNotes(user.telegramChatId, teaser, voiceNotes);
+      // Send to Telegram with voice notes if user has Telegram
+      if (user.telegramChatId) {
+        await sendNotificationWithVoiceNotes(user.telegramChatId, teaser, voiceNotes);
+      }
+
+      // Send to in-app (combine teaser + voice notes as text)
+      const inAppMessage = `${teaser}\n\n${voiceNotes.join('\n\n')}`;
+      await sendInAppNotification(userId, inAppMessage);
 
       // Mark as sent
       const signature = generateEventSignature(event.symbol, event.type, 0);

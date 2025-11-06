@@ -23,6 +23,7 @@ model User {
   holdings             Holding[]
   watchlist            Watchlist[]
   notificationSettings NotificationSettings?
+  inAppNotifications   InAppNotification[]
 
   @@map("users")
 }
@@ -131,4 +132,19 @@ model SentNotification {
   @@index([userId, symbol, eventType])
   @@index([expiresAt])
   @@map("sent_notifications")
+}
+
+// In-app notifications (messages shown in Ask tab)
+model InAppNotification {
+  id        String   @id @default(cuid())
+  userId    String
+  message   String   @db.Text
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+  @@map("in_app_notifications")
 }
