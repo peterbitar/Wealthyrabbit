@@ -3,6 +3,7 @@
     "lib": [
       "dom",
       "dom.iterable",
+      "ES2020",
       "esnext"
     ],
     "allowJs": true,
