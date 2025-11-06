@@ -198,7 +198,7 @@ export default function Ask() {
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="p-4 pt-4 border-b border-rabbit-border/50"
+        className="sticky top-0 z-10 p-4 pt-4 border-b border-rabbit-border/50 bg-rabbit-bg/95 backdrop-blur-sm"
       >
         <div className="flex items-center justify-between mb-1">
           <h1 className="text-2xl font-semibold text-gray-100">
