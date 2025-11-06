@@ -262,19 +262,26 @@ export default function Ask() {
 
                 {/* Voice Notes or Text Content */}
                 {message.voiceNotes && message.voiceNotes.length > 0 ? (
-                  <div className="space-y-3">
+                  <div className="space-y-3 w-full">
                     {message.voiceNotes.map((url, i) => (
-                      <audio
-                        key={i}
-                        controls
-                        controlsList="nodownload"
-                        className="w-full"
-                        style={{ height: '40px', minHeight: '40px' }}
-                        preload="metadata"
-                      >
-                        <source src={url} type="audio/ogg" />
-                        Your browser does not support audio playback.
-                      </audio>
+                      <div key={i} className="w-full">
+                        <audio
+                          controls
+                          controlsList="nodownload noplaybackrate"
+                          className="w-full rounded-lg"
+                          style={{
+                            height: '54px',
+                            minHeight: '54px',
+                            maxWidth: '100%',
+                            display: 'block'
+                          }}
+                          preload="metadata"
+                        >
+                          <source src={url} type="audio/ogg" />
+                          <source src={url} type="audio/mpeg" />
+                          Your browser does not support audio playback.
+                        </audio>
+                      </div>
                     ))}
                   </div>
                 ) : (
