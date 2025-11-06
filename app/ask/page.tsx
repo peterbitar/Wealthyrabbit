@@ -229,7 +229,7 @@ export default function Ask() {
       </motion.div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto p-4 pb-[180px] space-y-3">
         <AnimatePresence mode="popLayout">
           {messages.map((message, index) => {
             // Check if this is the first new message
@@ -401,7 +401,7 @@ export default function Ask() {
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.3 }}
-        className="sticky bottom-[68px] z-10 p-4 border-t border-rabbit-border/50 bg-rabbit-bg/95 backdrop-blur-sm"
+        className="fixed bottom-[68px] left-0 right-0 z-10 p-4 border-t border-rabbit-border/50 bg-rabbit-bg backdrop-blur-sm max-w-lg mx-auto"
       >
         <div className="flex items-center gap-3 bg-rabbit-card border border-rabbit-border rounded-2xl p-3 focus-within:border-rabbit-lavender-500/50 transition-all">
           {/* Voice Note Toggle */}
@@ -433,7 +433,7 @@ export default function Ask() {
               }
             }}
             placeholder="Ask anything about markets..."
-            className="flex-1 bg-transparent text-sm text-gray-200 placeholder-gray-500 outline-none"
+            className="flex-1 bg-transparent text-base text-gray-200 placeholder-gray-500 outline-none"
             aria-label="Ask a question"
           />
 
