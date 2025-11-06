@@ -230,7 +230,7 @@ export default function Ask() {
       </motion.div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-2 space-y-3">
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-0 space-y-3">
         <AnimatePresence mode="popLayout">
           {messages.map((message, index) => {
             // Check if this is the first new message
@@ -402,8 +402,8 @@ export default function Ask() {
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.3, duration: 0.2 }}
-        className="flex-shrink-0 p-4 border-t border-rabbit-border/50 bg-rabbit-bg backdrop-blur-sm"
-        style={{ paddingBottom: keyboardVisible ? '1rem' : 'calc(1rem + 68px)' }}
+        className="flex-shrink-0 px-4 pt-2 border-t border-rabbit-border/50 bg-rabbit-bg backdrop-blur-sm"
+        style={{ paddingBottom: keyboardVisible ? '0.5rem' : 'calc(0.5rem + 68px)' }}
       >
         <div className="flex items-center gap-3 bg-rabbit-card border border-rabbit-border rounded-2xl p-3 focus-within:border-rabbit-lavender-500/50 transition-all">
           {/* Voice Note Toggle */}
