@@ -123,10 +123,25 @@ export async function GET() {
         "id" TEXT NOT NULL PRIMARY KEY,
         "userId" TEXT NOT NULL,
         "message" TEXT NOT NULL,
+        "voiceNotes" TEXT[] DEFAULT '{}',
         "read" BOOLEAN NOT NULL DEFAULT false,
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "in_app_notifications_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE
       );
+    `);
+
+    // Add voiceNotes column if it doesn't exist (for existing tables)
+    await prisma.$executeRawUnsafe(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'in_app_notifications'
+          AND column_name = 'voiceNotes'
+        ) THEN
+          ALTER TABLE "in_app_notifications" ADD COLUMN "voiceNotes" TEXT[] DEFAULT '{}';
+        END IF;
+      END $$;
     `);
 
     // Create indexes
