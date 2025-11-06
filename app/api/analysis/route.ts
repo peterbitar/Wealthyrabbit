@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAI() {
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY || '',
+  });
+}
 
 interface FinnhubNewsArticle {
   category: string;
@@ -158,6 +160,7 @@ async function generateCombinedAnalysis(
           .join("\n\n")
       : "No recent Reddit discussion found.";
 
+  const openai = getOpenAI();
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
