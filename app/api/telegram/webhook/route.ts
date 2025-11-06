@@ -54,10 +54,19 @@ export async function POST(request: Request) {
             );
           }
         } else {
-          // No verification code - send welcome message
+          // No verification code - send Chat ID
           await sendTelegramMessage(
             chatId,
-            `🐇 *Welcome to WealthyRabbit!*\n\nTo link your account:\n1. Open WealthyRabbit app\n2. Go to Manage page\n3. Enable Telegram notifications\n4. Copy your verification code\n5. Send: /start YOUR_CODE\n\nExample: /start abc123xyz`
+            `🐇 *Welcome to WealthyRabbit!*\n\n*Your Chat ID:*\n\`${chatId}\`\n\nTo connect:\n1. Copy your Chat ID above\n2. Go to the Manage page in WealthyRabbit app\n3. Enable Telegram notifications\n4. Paste your Chat ID in the input field\n\n*What You'll Get:*\n• 📊 Real-time price alerts\n• 📰 Breaking market news\n• 🎯 Daily portfolio summaries\n• 💬 Ask me anything about stocks!\n\n🐇 *Let's make some money!*`
+          );
+        }
+      } else if (messageText && !messageText.startsWith('/')) {
+        // Handle regular messages - check if asking for chat ID
+        const lowerText = messageText.toLowerCase();
+        if (lowerText.includes('chat id') || lowerText.includes('chatid') || lowerText === 'id') {
+          await sendTelegramMessage(
+            chatId,
+            `📋 *Your Chat ID:*\n\`${chatId}\`\n\nCopy the number above and paste it in the WealthyRabbit app under Manage > Telegram settings.`
           );
         }
       }

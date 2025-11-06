@@ -258,6 +258,13 @@ export function startTelegramBot() {
     return;
   }
 
+  // WEBHOOK MODE - Polling is disabled
+  // The bot now uses webhooks via /api/telegram/webhook endpoint
+  console.log('ℹ️  Telegram bot in webhook mode - polling disabled');
+  console.log('   Updates will be received via: /api/telegram/webhook');
+  return;
+
+  /* POLLING MODE DISABLED - Using webhooks instead
   if (isPolling) {
     console.log('Telegram bot already running');
     return;
@@ -397,6 +404,7 @@ export function startTelegramBot() {
     console.error('Failed to start Telegram bot:', error);
     isPolling = false;
   }
+  */
 }
 
 export function stopTelegramBot() {

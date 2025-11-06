@@ -1,9 +1,9 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
-    const { startTelegramBot } = await import('./lib/telegram-bot');
+    const { setupTelegramWebhook } = await import('./lib/telegram-webhook-setup');
     const { startNotificationScheduler } = await import('./lib/notification-scheduler');
 
-    startTelegramBot();
+    setupTelegramWebhook();
     startNotificationScheduler();
   }
 }
