@@ -38,18 +38,35 @@ export default function Ask() {
   const [voiceNoteMode, setVoiceNoteMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load in-app notifications on mount
+  // Load in-app notifications and chat history on mount
   useEffect(() => {
     const userId = 'cmh503gjd00008okpn9ic7cia'; // TODO: Get from auth
 
     const loadNotifications = async () => {
       try {
+        // Load system notifications from database
         const response = await fetch(`/api/notifications/in-app?userId=${userId}`);
         const data = await response.json();
 
-        if (data.success && data.notifications) {
-          setMessages(data.notifications);
+        let allMessages: Message[] = [];
+
+        // Load chat history from localStorage
+        const savedChat = localStorage.getItem('wealthyrabbit-chat');
+        if (savedChat) {
+          try {
+            const chatHistory = JSON.parse(savedChat);
+            allMessages = chatHistory;
+          } catch (e) {
+            console.error('Failed to parse chat history:', e);
+          }
         }
+
+        // Append system notifications (these have IDs)
+        if (data.success && data.notifications) {
+          allMessages = [...allMessages, ...data.notifications];
+        }
+
+        setMessages(allMessages);
       } catch (error) {
         console.error('Error loading notifications:', error);
       } finally {
@@ -79,10 +96,26 @@ export default function Ask() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Save chat messages to localStorage whenever they change
+  useEffect(() => {
+    // Only save chat messages (ones without IDs - system notifications have IDs)
+    const chatMessages = messages.filter(msg => !msg.id);
+    if (chatMessages.length > 0) {
+      localStorage.setItem('wealthyrabbit-chat', JSON.stringify(chatMessages));
+    }
+  }, [messages]);
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
+
+  const clearChat = () => {
+    // Only clear chat messages, keep system notifications
+    const systemNotifications = messages.filter(msg => msg.id);
+    setMessages(systemNotifications);
+    localStorage.removeItem('wealthyrabbit-chat');
+  };
 
   const sendMessage = async (messageText: string) => {
     if (!messageText.trim()) return;
@@ -142,9 +175,19 @@ export default function Ask() {
         animate={{ opacity: 1, y: 0 }}
         className="p-4 pt-4 border-b border-rabbit-border/50"
       >
-        <h1 className="text-2xl font-semibold text-gray-100 mb-1">
-          Ask Your Rabbit
-        </h1>
+        <div className="flex items-center justify-between mb-1">
+          <h1 className="text-2xl font-semibold text-gray-100">
+            Ask Your Rabbit
+          </h1>
+          {messages.filter(msg => !msg.id).length > 0 && (
+            <button
+              onClick={clearChat}
+              className="text-xs text-gray-500 hover:text-rabbit-mint-400 transition-colors px-3 py-1.5 rounded-lg hover:bg-rabbit-card"
+            >
+              Clear Chat
+            </button>
+          )}
+        </div>
         <p className="text-sm text-gray-400">
           Markets explained in plain language
         </p>
