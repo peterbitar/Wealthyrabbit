@@ -4,9 +4,12 @@ import OpenAI from 'openai';
 import { Buffer } from 'buffer';
 
 const botToken = process.env.TELEGRAM_BOT_TOKEN;
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+
+function getOpenAI() {
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY || '',
+  });
+}
 
 let bot: TelegramBot | null = null;
 
@@ -162,6 +165,7 @@ export async function generateVoiceNote(text: string): Promise<Buffer> {
 
     console.log(`🎤 Generating voice note (${text.length} characters)...`);
 
+    const openai = getOpenAI();
     const response = await openai.audio.speech.create({
       model: 'tts-1',
       voice: 'alloy',

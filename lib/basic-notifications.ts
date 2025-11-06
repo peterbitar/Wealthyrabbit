@@ -9,9 +9,11 @@ import { prisma } from './prisma';
 import { sendNotificationWithVoiceNotes, sendTelegramMessage } from './telegram';
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAI() {
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY || '',
+  });
+}
 
 /**
  * Check if we've already sent a notification for this stock today
@@ -296,6 +298,7 @@ OR
 FORMAT: SUMMARY_TO_APP
 [your calm summary directing to app]`;
 
+    const openai = getOpenAI();
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: analysisPrompt }],
@@ -452,6 +455,7 @@ OR
 FORMAT: SUMMARY_TO_APP
 [calm summary directing to app]`;
 
+    const openai = getOpenAI();
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: analysisPrompt }],
