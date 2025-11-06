@@ -34,21 +34,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!user.telegramChatId) {
-      return NextResponse.json(
-        { error: 'Telegram not linked. Please connect your Telegram account first.' },
-        { status: 400 }
+    // Send intro message to Telegram if connected
+    if (user.telegramChatId) {
+      await sendTelegramMessage(
+        user.telegramChatId,
+        '🐇 Checking your holdings...'
       );
+      // Small delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
-
-    // Send intro message
-    await sendTelegramMessage(
-      user.telegramChatId,
-      '🐇 Checking your holdings...'
-    );
-
-    // Small delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Run basic notification check
     const result = await checkAndNotifyUser(userId);
@@ -57,7 +51,7 @@ export async function POST(request: NextRequest) {
     console.log(`   → Sent: ${result.sentCount}, Skipped: ${result.skippedCount}, Moving: ${result.movingStocks.join(', ')}`);
 
     // Send a summary message if nothing was sent
-    if (result.sentCount === 0) {
+    if (result.sentCount === 0 && user.telegramChatId) {
       if (result.skippedCount > 0) {
         // Stocks moved but already notified
         await sendTelegramMessage(
@@ -75,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      message: 'Event check complete! Check Telegram for updates.',
+      message: 'Event check complete! Check your notifications.',
       result,
     });
 
