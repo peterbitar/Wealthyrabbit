@@ -280,22 +280,52 @@ export function startTelegramBot() {
     // Handle /start command
     bot.onText(/\/start(.*)/, async (msg, match) => {
       const chatId = msg.chat.id.toString();
-      const verificationCode = match?.[1]?.trim();
+      const parameter = match?.[1]?.trim();
 
-      console.log(`Received /start from ${chatId}, code: ${verificationCode || 'none'}`);
+      console.log(`Received /start from ${chatId}, parameter: ${parameter || 'none'}`);
 
-      if (verificationCode) {
-        try {
-          // Find user with this verification code (using user ID)
+      try {
+        // Check if parameter is 'connect' (from website button)
+        if (parameter === 'connect') {
+          // Auto-connect to test user account
+          const testUserId = 'cmh503gjd00008okpn9ic7cia';
+
+          // Update or create test user with this Telegram Chat ID
+          await prisma.user.upsert({
+            where: { id: testUserId },
+            update: {
+              telegramChatId: chatId,
+              name: msg.from?.first_name || 'WealthyRabbit User',
+            },
+            create: {
+              id: testUserId,
+              email: 'test@wealthyrabbit.com',
+              name: msg.from?.first_name || 'WealthyRabbit User',
+              telegramChatId: chatId,
+            },
+          });
+
+          await bot?.sendMessage(
+            chatId,
+            `🎉 *Welcome to WealthyRabbit!*\n\nYour account is now connected.\n\n*What You'll Get:*\n• 📊 Real-time price alerts\n• 📰 Breaking market news\n• 🎯 Daily portfolio summaries\n• 💬 Ask me anything about stocks!\n\nHead back to the app and add some stocks to your portfolio to get started.\n\n🐇 *Let's make some money!*`,
+            { parse_mode: 'Markdown' }
+          );
+
+          console.log(`Auto-linked Chat ID ${chatId} to test user via connect button`);
+        } else if (parameter) {
+          // Parameter provided (could be a user ID for verification)
           const user = await prisma.user.findFirst({
-            where: { id: verificationCode },
+            where: { id: parameter },
           });
 
           if (user) {
             // Update user's Telegram Chat ID
             await prisma.user.update({
               where: { id: user.id },
-              data: { telegramChatId: chatId },
+              data: {
+                telegramChatId: chatId,
+                name: msg.from?.first_name || user.name,
+              },
             });
 
             // Send confirmation
@@ -313,19 +343,19 @@ export function startTelegramBot() {
               { parse_mode: 'Markdown' }
             );
           }
-        } catch (error) {
-          console.error('Error linking account:', error);
+        } else {
+          // No parameter - send welcome message with link
           await bot?.sendMessage(
             chatId,
-            `❌ *Error*\n\nFailed to link your account. Please try again later.`,
+            `🐇 *Welcome to WealthyRabbit!*\n\nTo connect your account, visit:\n\n👉 https://wealthyrabbit.vercel.app/connect-telegram\n\nOr if you have a verification code, send:\n/start YOUR_CODE`,
             { parse_mode: 'Markdown' }
           );
         }
-      } else {
-        // No verification code - send welcome message
+      } catch (error) {
+        console.error('Error in /start command:', error);
         await bot?.sendMessage(
           chatId,
-          `🐇 *Welcome to WealthyRabbit!*\n\nTo link your account:\n1. Open WealthyRabbit app\n2. Go to Manage page\n3. Enable Telegram notifications\n4. Copy your verification code\n5. Send: /start YOUR_CODE\n\nExample: /start abc123xyz`,
+          `❌ *Error*\n\nSomething went wrong. Please try again later or contact support.`,
           { parse_mode: 'Markdown' }
         );
       }
