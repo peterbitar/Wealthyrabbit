@@ -344,12 +344,30 @@ export function startTelegramBot() {
             );
           }
         } else {
-          // No parameter - send welcome message with link
+          // No parameter - auto-connect to test user
+          const testUserId = 'cmh503gjd00008okpn9ic7cia';
+
+          await prisma.user.upsert({
+            where: { id: testUserId },
+            update: {
+              telegramChatId: chatId,
+              name: msg.from?.first_name || 'WealthyRabbit User',
+            },
+            create: {
+              id: testUserId,
+              email: 'test@wealthyrabbit.com',
+              name: msg.from?.first_name || 'WealthyRabbit User',
+              telegramChatId: chatId,
+            },
+          });
+
           await bot?.sendMessage(
             chatId,
-            `🐇 *Welcome to WealthyRabbit!*\n\nTo connect your account, visit:\n\n👉 https://wealthyrabbit.vercel.app/connect-telegram\n\nOr if you have a verification code, send:\n/start YOUR_CODE`,
+            `🎉 *Welcome to WealthyRabbit!*\n\nYour account is now connected.\n\n*What You'll Get:*\n• 📊 Real-time price alerts\n• 📰 Breaking market news\n• 🎯 Daily portfolio summaries\n• 💬 Ask me anything about stocks!\n\nHead to the app and add some stocks to your portfolio to get started.\n\n🐇 *Let's make some money!*`,
             { parse_mode: 'Markdown' }
           );
+
+          console.log(`Auto-linked Chat ID ${chatId} to test user via /start`);
         }
       } catch (error) {
         console.error('Error in /start command:', error);
