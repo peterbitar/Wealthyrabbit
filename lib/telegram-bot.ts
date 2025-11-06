@@ -374,6 +374,17 @@ export function startTelegramBot() {
       const chatId = msg.chat.id.toString();
       console.log(`Received message from ${chatId}: ${msg.text}`);
 
+      // Check if user is asking for their chat ID
+      const lowerText = msg.text.toLowerCase();
+      if (lowerText.includes('chat id') || lowerText.includes('chatid') || lowerText === 'id') {
+        await bot?.sendMessage(
+          chatId,
+          `📋 *Your Chat ID:*\n\`${chatId}\`\n\nCopy the number above and paste it in the WealthyRabbit app under Manage > Telegram settings.`,
+          { parse_mode: 'Markdown' }
+        );
+        return;
+      }
+
       await handleConversation(chatId, msg.text);
     });
 
