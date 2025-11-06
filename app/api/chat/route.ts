@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { prisma } from '@/lib/prisma';
+import { generateAndStoreVoiceNote } from '@/lib/voice-notes';
 
 /**
  * POST /api/chat
@@ -9,7 +10,12 @@ import { prisma } from '@/lib/prisma';
  */
 export async function POST(request: NextRequest) {
   try {
-    const { message, conversationHistory = [], userId = 'cmh503gjd00008okpn9ic7cia' } = await request.json();
+    const {
+      message,
+      conversationHistory = [],
+      userId = 'cmh503gjd00008okpn9ic7cia',
+      requestVoiceNote = false // User explicitly requested voice note
+    } = await request.json();
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json(
@@ -125,8 +131,27 @@ Remember: You're explaining markets, not giving financial advice. But you ARE aw
 
     const reply = completion.choices[0]?.message?.content || 'Sorry, I had trouble processing that. Can you try rephrasing?';
 
+    // Determine if we should generate a voice note
+    // Generate voice note if:
+    // 1. User explicitly requested it, OR
+    // 2. Response is long (> 300 characters / ~50 words)
+    const shouldGenerateVoiceNote = requestVoiceNote || reply.length > 300;
+
+    let voiceNoteUrl = null;
+    if (shouldGenerateVoiceNote) {
+      try {
+        console.log(`🎤 Generating voice note for chat response (length: ${reply.length} chars, requested: ${requestVoiceNote})`);
+        voiceNoteUrl = await generateAndStoreVoiceNote(reply);
+        console.log(`✅ Voice note generated: ${voiceNoteUrl}`);
+      } catch (error) {
+        console.error('Failed to generate voice note for chat:', error);
+        // Continue without voice note if generation fails
+      }
+    }
+
     return NextResponse.json({
       message: reply,
+      voiceNote: voiceNoteUrl,
       ok: true,
     });
 

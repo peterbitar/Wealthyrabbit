@@ -35,6 +35,7 @@ export default function Ask() {
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [voiceNoteMode, setVoiceNoteMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load in-app notifications on mount
@@ -103,6 +104,7 @@ export default function Ask() {
         body: JSON.stringify({
           message: messageText,
           conversationHistory: messages,
+          requestVoiceNote: voiceNoteMode, // Pass voice note preference
         }),
       });
 
@@ -112,6 +114,7 @@ export default function Ask() {
         const assistantMessage: Message = {
           role: "assistant",
           content: data.message,
+          voiceNotes: data.voiceNote ? [data.voiceNote] : undefined,
           time: getTimeString(),
         };
         setMessages(prev => [...prev, assistantMessage]);
@@ -191,21 +194,51 @@ export default function Ask() {
                   </motion.div>
                 )}
 
-                {/* Voice Notes or Text Content */}
+                {/* Voice Notes and/or Text Content */}
                 {message.voiceNotes && message.voiceNotes.length > 0 ? (
-                  <div className="space-y-2">
-                    {message.voiceNotes.map((url, i) => (
-                      <audio
-                        key={i}
-                        controls
-                        className="w-full h-10"
-                        preload="metadata"
-                      >
-                        <source src={url} type="audio/ogg" />
-                        Your browser does not support audio playback.
-                      </audio>
-                    ))}
-                  </div>
+                  <>
+                    {/* For system notifications (from events), show only voice notes */}
+                    {message.id ? (
+                      <div className="space-y-2">
+                        {message.voiceNotes.map((url, i) => (
+                          <audio
+                            key={i}
+                            controls
+                            className="w-full h-10"
+                            preload="metadata"
+                          >
+                            <source src={url} type="audio/ogg" />
+                            Your browser does not support audio playback.
+                          </audio>
+                        ))}
+                      </div>
+                    ) : (
+                      /* For chat responses, show both voice note and text */
+                      <>
+                        <div className="space-y-2 mb-3">
+                          {message.voiceNotes.map((url, i) => (
+                            <audio
+                              key={i}
+                              controls
+                              className="w-full h-10"
+                              preload="metadata"
+                            >
+                              <source src={url} type="audio/ogg" />
+                              Your browser does not support audio playback.
+                            </audio>
+                          ))}
+                        </div>
+                        <motion.p
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: index * 0.08 + 0.2 }}
+                          className="text-sm text-gray-200 leading-relaxed whitespace-pre-line"
+                        >
+                          {message.content}
+                        </motion.p>
+                      </>
+                    )}
+                  </>
                 ) : (
                   <motion.p
                     initial={{ opacity: 0 }}
@@ -297,6 +330,25 @@ export default function Ask() {
         className="p-4 border-t border-rabbit-border/50"
       >
         <div className="flex items-center gap-3 bg-rabbit-card border border-rabbit-border rounded-2xl p-3 focus-within:border-rabbit-lavender-500/50 transition-all">
+          {/* Voice Note Toggle */}
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setVoiceNoteMode(!voiceNoteMode)}
+            className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${
+              voiceNoteMode
+                ? 'bg-rabbit-mint-500/20 text-rabbit-mint-400'
+                : 'text-gray-500 hover:text-gray-400'
+            }`}
+            title={voiceNoteMode ? 'Voice notes enabled' : 'Click for voice responses'}
+            aria-label="Toggle voice note mode"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+              <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+            </svg>
+          </motion.button>
+
           <input
             type="text"
             value={inputValue}
@@ -336,9 +388,20 @@ export default function Ask() {
           </motion.button>
         </div>
 
-        <p className="text-xs text-gray-600 text-center mt-3">
-          Rabbit explains markets, not financial advice
-        </p>
+        <div className="flex items-center justify-between mt-3">
+          <p className="text-xs text-gray-600">
+            Rabbit explains markets, not financial advice
+          </p>
+          {voiceNoteMode && (
+            <motion.p
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="text-xs text-rabbit-mint-400"
+            >
+              🎤 Voice mode
+            </motion.p>
+          )}
+        </div>
       </motion.div>
     </div>
   );
