@@ -30,6 +30,20 @@ function getTimeString() {
   });
 }
 
+// Helper to parse time strings like "10:08 AM" for sorting
+function parseTimeString(timeStr: string): number {
+  const today = new Date();
+  const [time, period] = timeStr.split(' ');
+  const [hours, minutes] = time.split(':').map(Number);
+
+  let hour24 = hours;
+  if (period === 'PM' && hours !== 12) hour24 += 12;
+  if (period === 'AM' && hours === 12) hour24 = 0;
+
+  today.setHours(hour24, minutes, 0, 0);
+  return today.getTime();
+}
+
 export default function Ask() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -65,6 +79,14 @@ export default function Ask() {
         if (data.success && data.notifications) {
           allMessages = [...allMessages, ...data.notifications];
         }
+
+        // Sort all messages by timestamp (parse time string to sort chronologically)
+        allMessages.sort((a, b) => {
+          // Use createdAt for system notifications, or parse time string for chat
+          const timeA = a.id ? new Date(a.time).getTime() : parseTimeString(a.time);
+          const timeB = b.id ? new Date(b.time).getTime() : parseTimeString(b.time);
+          return timeA - timeB;
+        });
 
         setMessages(allMessages);
       } catch (error) {
@@ -237,51 +259,21 @@ export default function Ask() {
                   </motion.div>
                 )}
 
-                {/* Voice Notes and/or Text Content */}
+                {/* Voice Notes or Text Content */}
                 {message.voiceNotes && message.voiceNotes.length > 0 ? (
-                  <>
-                    {/* For system notifications (from events), show only voice notes */}
-                    {message.id ? (
-                      <div className="space-y-2">
-                        {message.voiceNotes.map((url, i) => (
-                          <audio
-                            key={i}
-                            controls
-                            className="w-full h-10"
-                            preload="metadata"
-                          >
-                            <source src={url} type="audio/ogg" />
-                            Your browser does not support audio playback.
-                          </audio>
-                        ))}
-                      </div>
-                    ) : (
-                      /* For chat responses, show both voice note and text */
-                      <>
-                        <div className="space-y-2 mb-3">
-                          {message.voiceNotes.map((url, i) => (
-                            <audio
-                              key={i}
-                              controls
-                              className="w-full h-10"
-                              preload="metadata"
-                            >
-                              <source src={url} type="audio/ogg" />
-                              Your browser does not support audio playback.
-                            </audio>
-                          ))}
-                        </div>
-                        <motion.p
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ delay: index * 0.08 + 0.2 }}
-                          className="text-sm text-gray-200 leading-relaxed whitespace-pre-line"
-                        >
-                          {message.content}
-                        </motion.p>
-                      </>
-                    )}
-                  </>
+                  <div className="space-y-2">
+                    {message.voiceNotes.map((url, i) => (
+                      <audio
+                        key={i}
+                        controls
+                        className="w-full h-10"
+                        preload="metadata"
+                      >
+                        <source src={url} type="audio/ogg" />
+                        Your browser does not support audio playback.
+                      </audio>
+                    ))}
+                  </div>
                 ) : (
                   <motion.p
                     initial={{ opacity: 0 }}
