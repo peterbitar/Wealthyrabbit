@@ -432,28 +432,17 @@ Decide format:
 One clean paragraph explaining everything.
 
 2️⃣ SUMMARY_AND_VOICE (if 2-4 stocks with nuance):
-Generate TWO COMPLETELY DIFFERENT pieces of content:
-
-SUMMARY (what user READS before playing audio):
-- Ultra-concise: 1-2 short sentences MAX
-- Just the key takeaway/headline
-- Like a news headline or tweet
-- Example: "Tesla and Nvidia rallying on AI chip demand"
-
-VOICE (what user HEARS in the audio):
-- Longer detailed explanation (45 seconds when spoken)
+Write ONE detailed voice note (the summary will be auto-generated from it):
+- 45 seconds when spoken (approximately 3-5 sentences)
 - Include sources, percentages, context, analysis
-- More conversational and thorough
+- Conversational and thorough
 - Example: "Looks like Tesla jumped 4.2% and Nvidia climbed 3.8% today. Bloomberg is reporting increased demand for AI chips, and Reddit sentiment is extremely bullish with over 500 mentions across investing subreddits. The tech sector is seeing strong momentum as earnings season approaches..."
-
-DO NOT copy the same text for both! SUMMARY = headline, VOICE = full story.
 
 3️⃣ SUMMARY_TO_APP (if overwhelming, >4 stocks):
 Calm summary directing to app.
 
 IMPORTANT:
 - Use company names (Tesla, Apple) in voice notes for better audio clarity
-- SUMMARY must be 1-2 sentences, VOICE must be 3-5 sentences with details
 
 Respond ONLY in one of these formats:
 
@@ -463,8 +452,6 @@ FORMAT: TEXT_ONLY
 OR
 
 FORMAT: SUMMARY_AND_VOICE
-SUMMARY:
-[1-2 sentence headline - just the key takeaway]
 VOICE:
 [3-5 sentence detailed explanation with sources, percentages, and analysis]
 
@@ -492,13 +479,30 @@ FORMAT: SUMMARY_TO_APP
         };
       }
     } else if (responseText.includes('FORMAT: SUMMARY_AND_VOICE')) {
-      const summaryMatch = responseText.match(/SUMMARY:\s*\n(.+?)(?=\n\s*VOICE:|$)/s);
       const voiceMatch = responseText.match(/VOICE:\s*\n([\s\S]+?)$/);
 
-      if (summaryMatch && voiceMatch) {
+      if (voiceMatch) {
+        const voiceContent = voiceMatch[1].trim().replace(/—/g, ',');
+
+        // Generate a short summary of the voice note content
+        const summaryPrompt = `Summarize this voice note in ONE SHORT SENTENCE (maximum 12 words):
+
+"${voiceContent}"
+
+Your summary should be a headline that captures the key point. No sources, no details, just the main takeaway.`;
+
+        const summaryCompletion = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: summaryPrompt }],
+          max_tokens: 50,
+          temperature: 0.7,
+        });
+
+        const generatedSummary = summaryCompletion.choices[0]?.message?.content?.trim() || 'Market update';
+
         return {
-          summary: summaryMatch[1].trim().replace(/—/g, ','),
-          voiceNotes: [voiceMatch[1].trim().replace(/—/g, ',')]
+          summary: generatedSummary.replace(/—/g, ',').replace(/^["']|["']$/g, ''),
+          voiceNotes: [voiceContent]
         };
       }
     } else if (responseText.includes('FORMAT: SUMMARY_TO_APP')) {
