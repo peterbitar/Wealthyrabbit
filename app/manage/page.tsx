@@ -428,13 +428,26 @@ export default function Manage() {
                     </p>
                   </div>
 
-                  <button
-                    onClick={sendTestNotification}
-                    disabled={testingSMS}
-                    className="w-full px-4 py-2 bg-rabbit-mint-500 hover:bg-rabbit-mint-600 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-white text-sm font-medium transition-colors"
-                  >
-                    {testingSMS ? 'Sending...' : 'Send Test Message'}
-                  </button>
+                  <div className="space-y-2">
+                    <button
+                      onClick={sendTestNotification}
+                      disabled={testingSMS}
+                      className="w-full px-4 py-2 bg-rabbit-mint-500 hover:bg-rabbit-mint-600 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-white text-sm font-medium transition-colors"
+                    >
+                      {testingSMS ? 'Sending...' : 'Send Test Message'}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        if (confirm('Disconnect Telegram? You can reconnect anytime.')) {
+                          setTelegramChatId('');
+                        }
+                      }}
+                      className="w-full px-4 py-2 bg-rabbit-dark border border-rabbit-border hover:border-rabbit-error/50 hover:bg-rabbit-error/10 rounded-lg text-gray-300 hover:text-rabbit-error text-sm font-medium transition-colors"
+                    >
+                      Disconnect
+                    </button>
+                  </div>
 
                   {testResult && (
                     <div
