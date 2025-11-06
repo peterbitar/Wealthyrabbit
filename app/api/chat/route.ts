@@ -147,11 +147,33 @@ Remember: You're a versatile market assistant. Discuss trending stocks, market a
     const shouldGenerateVoiceNote = requestVoiceNote || reply.length > 300;
 
     let voiceNoteUrl = null;
+    let displayMessage = reply;
+
     if (shouldGenerateVoiceNote) {
       try {
         console.log(`🎤 Generating voice note for chat response (length: ${reply.length} chars, requested: ${requestVoiceNote})`);
         voiceNoteUrl = await generateAndStoreVoiceNote(reply);
         console.log(`✅ Voice note generated: ${voiceNoteUrl}`);
+
+        // Generate a short summary for display (voice note has full content)
+        const summaryPrompt = `Summarize this response in ONE SHORT SENTENCE (maximum 12 words):
+
+"${reply}"
+
+Your summary should be a headline that captures the key point. No details, just the main takeaway.`;
+
+        const summaryCompletion = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: summaryPrompt }],
+          max_tokens: 50,
+          temperature: 0.7,
+        });
+
+        const summary = summaryCompletion.choices[0]?.message?.content?.trim();
+        if (summary) {
+          displayMessage = summary.replace(/^["']|["']$/g, ''); // Remove quotes if present
+          console.log(`📝 Generated summary: ${displayMessage}`);
+        }
       } catch (error) {
         console.error('Failed to generate voice note for chat:', error);
         // Continue without voice note if generation fails
@@ -159,7 +181,7 @@ Remember: You're a versatile market assistant. Discuss trending stocks, market a
     }
 
     return NextResponse.json({
-      message: reply,
+      message: displayMessage,
       voiceNote: voiceNoteUrl,
       ok: true,
     });
