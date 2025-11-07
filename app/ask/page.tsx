@@ -204,12 +204,13 @@ export default function Ask() {
   };
 
   return (
-    <div className="h-screen overflow-hidden">
+    <div className="h-screen overflow-hidden touch-none">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="fixed top-0 left-0 right-0 z-20 p-4 pt-4 border-b border-rabbit-border/50 bg-rabbit-bg backdrop-blur-sm max-w-lg mx-auto"
+        className="fixed top-0 left-0 right-0 z-20 p-4 pt-4 border-b border-rabbit-border/50 bg-rabbit-bg max-w-lg mx-auto"
+        style={{ WebkitBackfaceVisibility: 'hidden', backfaceVisibility: 'hidden' }}
       >
         <div className="flex items-center justify-between mb-1">
           <h1 className="text-2xl font-semibold text-gray-100">
@@ -230,7 +231,10 @@ export default function Ask() {
       </motion.div>
 
       {/* Messages */}
-      <div className="absolute top-[100px] bottom-[120px] left-0 right-0 overflow-y-auto px-4 space-y-3 max-w-lg mx-auto">
+      <div
+        className="absolute top-[100px] bottom-[120px] left-0 right-0 overflow-y-auto px-4 space-y-3 max-w-lg mx-auto touch-auto overscroll-contain"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
         <AnimatePresence mode="popLayout">
           {messages.map((message, index) => {
             // Check if this is the first new message
@@ -402,8 +406,14 @@ export default function Ask() {
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.3, duration: 0.2 }}
-        className="fixed left-0 right-0 z-30 px-4 pt-2 pb-2 border-t border-rabbit-border/50 bg-rabbit-bg backdrop-blur-sm max-w-lg mx-auto"
-        style={{ bottom: keyboardVisible ? 0 : 68 }}
+        className="fixed left-0 right-0 z-30 px-4 pt-2 pb-2 border-t border-rabbit-border/50 bg-rabbit-bg max-w-lg mx-auto"
+        style={{
+          bottom: keyboardVisible ? 0 : 68,
+          WebkitBackfaceVisibility: 'hidden',
+          backfaceVisibility: 'hidden',
+          WebkitTransform: 'translateZ(0)',
+          transform: 'translateZ(0)'
+        }}
       >
         <div className="flex items-center gap-3 bg-rabbit-card border border-rabbit-border rounded-2xl p-3 focus-within:border-rabbit-lavender-500/50 transition-all">
           {/* Voice Note Toggle */}
