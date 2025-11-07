@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 export default function BottomNav() {
   const pathname = usePathname();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   const isActive = (path: string) => pathname === path;
 
@@ -37,6 +38,34 @@ export default function BottomNav() {
 
     return () => clearInterval(interval);
   }, [pathname]);
+
+  // Detect keyboard on Ask page
+  useEffect(() => {
+    if (pathname !== '/ask' || typeof window === 'undefined' || !window.visualViewport) {
+      setKeyboardVisible(false);
+      return;
+    }
+
+    const updateViewport = () => {
+      const viewport = window.visualViewport;
+      if (viewport) {
+        const keyboardOpen = viewport.height < window.innerHeight - 150;
+        setKeyboardVisible(keyboardOpen);
+      }
+    };
+
+    setTimeout(updateViewport, 100);
+    window.visualViewport.addEventListener('resize', updateViewport);
+
+    return () => {
+      window.visualViewport?.removeEventListener('resize', updateViewport);
+    };
+  }, [pathname]);
+
+  // Hide on Ask page when keyboard is visible
+  if (pathname === '/ask' && keyboardVisible) {
+    return null;
+  }
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-rabbit-card border-t border-rabbit-border z-50">

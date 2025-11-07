@@ -273,9 +273,9 @@ export default function Ask() {
         className="fixed left-0 right-0 overflow-y-auto px-4 space-y-3 max-w-lg mx-auto touch-auto overscroll-contain"
         style={{
           top: keyboardVisible ? '0' : 'calc(env(safe-area-inset-top) + 100px)',
-          bottom: keyboardVisible ? `${window.innerHeight - (viewportHeight || window.innerHeight) + 80}px` : 'calc(68px + 140px)',
+          bottom: keyboardVisible ? `${window.innerHeight - (viewportHeight || window.innerHeight) + 70}px` : 'calc(68px + 140px)',
           paddingTop: keyboardVisible ? '0.5rem' : '0.75rem',
-          paddingBottom: '0.5rem',
+          paddingBottom: keyboardVisible ? '0.25rem' : '0.5rem',
           willChange: 'transform',
           WebkitOverflowScrolling: 'touch',
           WebkitBackfaceVisibility: 'hidden',
@@ -461,8 +461,8 @@ export default function Ask() {
         }`}
         style={{
           bottom: keyboardVisible ? `${window.innerHeight - (viewportHeight || window.innerHeight)}px` : 68,
-          paddingTop: keyboardVisible ? '0.75rem' : '0.5rem',
-          paddingBottom: keyboardVisible ? '0.75rem' : '0.5rem',
+          paddingTop: keyboardVisible ? '0.25rem' : '0.5rem',
+          paddingBottom: keyboardVisible ? '0.25rem' : '0.5rem',
           willChange: 'transform',
           WebkitBackfaceVisibility: 'hidden',
           backfaceVisibility: 'hidden',
@@ -471,7 +471,7 @@ export default function Ask() {
         }}
       >
         <div className={`flex items-center gap-3 bg-rabbit-card border border-rabbit-border rounded-2xl transition-all ${
-          keyboardVisible ? 'p-4' : 'p-3 focus-within:border-rabbit-lavender-500/50'
+          keyboardVisible ? 'p-3' : 'p-3 focus-within:border-rabbit-lavender-500/50'
         }`}>
           {/* Voice Note Toggle - Hide when keyboard visible */}
           {!keyboardVisible && (
