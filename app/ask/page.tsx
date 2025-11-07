@@ -56,6 +56,7 @@ export default function Ask() {
   const [lastSeenTimestamp, setLastSeenTimestamp] = useState<number | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [viewportHeight, setViewportHeight] = useState(0);
+  const [inputContainerHeight, setInputContainerHeight] = useState(48);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputContainerRef = useRef<HTMLDivElement>(null);
 
@@ -154,6 +155,11 @@ export default function Ask() {
         // Keyboard is visible if viewport height is significantly less than window height
         const keyboardOpen = viewport.height < window.innerHeight - 150;
         setKeyboardVisible(keyboardOpen);
+      }
+
+      // Measure input container height
+      if (inputContainerRef.current) {
+        setInputContainerHeight(inputContainerRef.current.offsetHeight);
       }
     };
 
@@ -273,9 +279,9 @@ export default function Ask() {
         className="fixed left-0 right-0 overflow-y-auto px-4 space-y-3 max-w-lg mx-auto touch-auto overscroll-contain"
         style={{
           top: keyboardVisible ? '0' : 'calc(env(safe-area-inset-top) + 100px)',
-          bottom: keyboardVisible ? `${window.innerHeight - (viewportHeight || window.innerHeight) + 56}px` : 'calc(68px + 140px)',
+          bottom: keyboardVisible ? `${window.innerHeight - (viewportHeight || window.innerHeight) + inputContainerHeight - 8}px` : 'calc(68px + 140px)',
           paddingTop: keyboardVisible ? '0.5rem' : '0.75rem',
-          paddingBottom: keyboardVisible ? '0' : '0.5rem',
+          paddingBottom: '0.5rem',
           willChange: 'transform',
           WebkitOverflowScrolling: 'touch',
           WebkitBackfaceVisibility: 'hidden',
