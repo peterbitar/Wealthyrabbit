@@ -55,11 +55,9 @@ export default function Ask() {
   const [voiceNoteMode, setVoiceNoteMode] = useState(false);
   const [lastSeenTimestamp, setLastSeenTimestamp] = useState<number | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const [headerHeight, setHeaderHeight] = useState(100);
-  const [inputHeight, setInputHeight] = useState(120);
+  const [viewportHeight, setViewportHeight] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const headerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLDivElement>(null);
+  const inputContainerRef = useRef<HTMLDivElement>(null);
 
   // Load in-app notifications and chat history on mount
   useEffect(() => {
@@ -145,21 +143,29 @@ export default function Ask() {
     }
   }, [messages]);
 
-  // Measure header and input heights
+  // Detect keyboard using visualViewport API for accurate iPhone Chrome detection
   useEffect(() => {
-    const measureHeights = () => {
-      if (headerRef.current) {
-        setHeaderHeight(headerRef.current.offsetHeight);
-      }
-      if (inputRef.current) {
-        setInputHeight(inputRef.current.offsetHeight + (keyboardVisible ? 0 : 68));
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+
+    const updateViewport = () => {
+      const viewport = window.visualViewport;
+      if (viewport) {
+        setViewportHeight(viewport.height);
+        // Keyboard is visible if viewport height is significantly less than window height
+        const keyboardOpen = viewport.height < window.innerHeight - 100;
+        setKeyboardVisible(keyboardOpen);
       }
     };
 
-    measureHeights();
-    window.addEventListener('resize', measureHeights);
-    return () => window.removeEventListener('resize', measureHeights);
-  }, [keyboardVisible]);
+    updateViewport();
+    window.visualViewport.addEventListener('resize', updateViewport);
+    window.visualViewport.addEventListener('scroll', updateViewport);
+
+    return () => {
+      window.visualViewport?.removeEventListener('resize', updateViewport);
+      window.visualViewport?.removeEventListener('scroll', updateViewport);
+    };
+  }, []);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -225,19 +231,22 @@ export default function Ask() {
 
   return (
     <div className="h-screen overflow-hidden touch-none">
-      {/* Header */}
-      <motion.div
-        ref={headerRef}
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="fixed left-0 right-0 z-20 px-4 pb-3 border-b border-rabbit-border/50 bg-rabbit-bg max-w-lg mx-auto"
-        style={{
-          top: 'env(safe-area-inset-top)',
-          paddingTop: 'max(1rem, env(safe-area-inset-top))',
-          WebkitBackfaceVisibility: 'hidden',
-          backfaceVisibility: 'hidden'
-        }}
-      >
+      {/* Header - Hide when keyboard is visible */}
+      {!keyboardVisible && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="fixed left-0 right-0 z-20 px-4 pb-3 border-b border-rabbit-border/50 bg-rabbit-bg max-w-lg mx-auto"
+          style={{
+            top: 'env(safe-area-inset-top)',
+            paddingTop: 'max(1rem, env(safe-area-inset-top))',
+            willChange: 'transform',
+            WebkitBackfaceVisibility: 'hidden',
+            backfaceVisibility: 'hidden',
+            WebkitTransform: 'translateZ(0)',
+            transform: 'translateZ(0)'
+          }}
+        >
         <div className="flex items-center justify-between mb-1">
           <h1 className="text-2xl font-semibold text-gray-100">
             Ask Your Rabbit
@@ -255,14 +264,21 @@ export default function Ask() {
           Markets explained in plain language
         </p>
       </motion.div>
+      )}
 
       {/* Messages */}
       <div
-        className="absolute left-0 right-0 overflow-y-auto px-4 pt-3 space-y-3 max-w-lg mx-auto touch-auto overscroll-contain"
+        className="fixed left-0 right-0 overflow-y-auto px-4 space-y-3 max-w-lg mx-auto touch-auto overscroll-contain"
         style={{
-          top: `${headerHeight}px`,
-          bottom: `${inputHeight}px`,
-          WebkitOverflowScrolling: 'touch'
+          top: keyboardVisible ? 'env(safe-area-inset-top)' : 'calc(env(safe-area-inset-top) + 100px)',
+          bottom: keyboardVisible ? `${window.innerHeight - (viewportHeight || window.innerHeight) + 70}px` : 'calc(68px + 140px)',
+          paddingTop: keyboardVisible ? 'max(0.5rem, 0px)' : '0.75rem',
+          willChange: 'transform',
+          WebkitOverflowScrolling: 'touch',
+          WebkitBackfaceVisibility: 'hidden',
+          backfaceVisibility: 'hidden',
+          WebkitTransform: 'translateZ(0)',
+          transform: 'translateZ(0)'
         }}
       >
         <AnimatePresence mode="popLayout">
@@ -433,14 +449,16 @@ export default function Ask() {
 
       {/* Input Area */}
       <motion.div
-        ref={inputRef}
+        ref={inputContainerRef}
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.3, duration: 0.2 }}
-        className="fixed left-0 right-0 z-30 px-4 pt-2 border-t border-rabbit-border/50 bg-rabbit-bg max-w-lg mx-auto"
+        className="fixed left-0 right-0 z-30 px-4 border-t border-rabbit-border/50 bg-rabbit-bg max-w-lg mx-auto"
         style={{
-          bottom: keyboardVisible ? 'env(safe-area-inset-bottom)' : 'max(68px, calc(68px + env(safe-area-inset-bottom)))',
-          paddingBottom: keyboardVisible ? 'max(0.5rem, env(safe-area-inset-bottom))' : '0.5rem',
+          bottom: keyboardVisible ? `${window.innerHeight - (viewportHeight || window.innerHeight)}px` : 68,
+          paddingTop: '0.5rem',
+          paddingBottom: '0.5rem',
+          willChange: 'transform',
           WebkitBackfaceVisibility: 'hidden',
           backfaceVisibility: 'hidden',
           WebkitTransform: 'translateZ(0)',
@@ -448,31 +466,31 @@ export default function Ask() {
         }}
       >
         <div className="flex items-center gap-3 bg-rabbit-card border border-rabbit-border rounded-2xl p-3 focus-within:border-rabbit-lavender-500/50 transition-all">
-          {/* Voice Note Toggle */}
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => setVoiceNoteMode(!voiceNoteMode)}
-            className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${
-              voiceNoteMode
-                ? 'bg-rabbit-mint-500/20 text-rabbit-mint-400'
-                : 'text-gray-500 hover:text-gray-400'
-            }`}
-            title={voiceNoteMode ? 'Voice notes enabled' : 'Click for voice responses'}
-            aria-label="Toggle voice note mode"
-          >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-              <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-            </svg>
-          </motion.button>
+          {/* Voice Note Toggle - Hide when keyboard visible */}
+          {!keyboardVisible && (
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setVoiceNoteMode(!voiceNoteMode)}
+              className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${
+                voiceNoteMode
+                  ? 'bg-rabbit-mint-500/20 text-rabbit-mint-400'
+                  : 'text-gray-500 hover:text-gray-400'
+              }`}
+              title={voiceNoteMode ? 'Voice notes enabled' : 'Click for voice responses'}
+              aria-label="Toggle voice note mode"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+              </svg>
+            </motion.button>
+          )}
 
           <input
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            onFocus={() => setKeyboardVisible(true)}
-            onBlur={() => setKeyboardVisible(false)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && inputValue.trim()) {
                 sendMessage(inputValue);
@@ -508,20 +526,23 @@ export default function Ask() {
           </motion.button>
         </div>
 
-        <div className="flex items-center justify-between mt-3">
-          <p className="text-xs text-gray-600">
-            Rabbit explains markets, not financial advice
-          </p>
-          {voiceNoteMode && (
-            <motion.p
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="text-xs text-rabbit-mint-400"
-            >
-              🎤 Voice mode
-            </motion.p>
-          )}
-        </div>
+        {/* Hide disclaimer when keyboard is visible */}
+        {!keyboardVisible && (
+          <div className="flex items-center justify-between mt-3">
+            <p className="text-xs text-gray-600">
+              Rabbit explains markets, not financial advice
+            </p>
+            {voiceNoteMode && (
+              <motion.p
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="text-xs text-rabbit-mint-400"
+              >
+                🎤 Voice mode
+              </motion.p>
+            )}
+          </div>
+        )}
       </motion.div>
     </div>
   );
