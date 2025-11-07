@@ -144,16 +144,19 @@ export default function Ask() {
     }
   }, [messages]);
 
-  // Detect keyboard using visualViewport API for accurate iPhone Chrome detection
+  // Detect keyboard using visualViewport API for accurate iPhone detection (Chrome & Safari)
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.visualViewport) return;
+    if (typeof window === 'undefined') return;
 
     const updateViewport = () => {
-      const viewport = window.visualViewport;
-      if (viewport) {
+      if (window.visualViewport) {
+        const viewport = window.visualViewport;
         setViewportHeight(viewport.height);
-        // Keyboard is visible if viewport height is significantly less than window height
-        const keyboardOpen = viewport.height < window.innerHeight - 150;
+        const keyboardOpen = viewport.height < window.innerHeight - 100;
+        setKeyboardVisible(keyboardOpen);
+      } else {
+        // Fallback for browsers without visualViewport
+        const keyboardOpen = window.innerHeight < window.screen.height - 100;
         setKeyboardVisible(keyboardOpen);
       }
 
@@ -166,12 +169,23 @@ export default function Ask() {
     // Initial update with slight delay to ensure proper measurement
     setTimeout(updateViewport, 100);
 
-    window.visualViewport.addEventListener('resize', updateViewport);
-    window.visualViewport.addEventListener('scroll', updateViewport);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', updateViewport);
+      window.visualViewport.addEventListener('scroll', updateViewport);
+    }
+
+    window.addEventListener('resize', updateViewport);
+    window.addEventListener('focusin', updateViewport);
+    window.addEventListener('focusout', () => setTimeout(updateViewport, 100));
 
     return () => {
-      window.visualViewport?.removeEventListener('resize', updateViewport);
-      window.visualViewport?.removeEventListener('scroll', updateViewport);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', updateViewport);
+        window.visualViewport.removeEventListener('scroll', updateViewport);
+      }
+      window.removeEventListener('resize', updateViewport);
+      window.removeEventListener('focusin', updateViewport);
+      window.removeEventListener('focusout', updateViewport);
     };
   }, []);
 
@@ -279,9 +293,9 @@ export default function Ask() {
         className="fixed left-0 right-0 overflow-y-auto px-4 space-y-3 max-w-lg mx-auto touch-auto overscroll-contain"
         style={{
           top: keyboardVisible ? '0' : 'calc(env(safe-area-inset-top) + 100px)',
-          bottom: keyboardVisible ? `${window.innerHeight - (viewportHeight || window.innerHeight) + inputContainerHeight - 8}px` : 'calc(68px + 140px)',
+          bottom: keyboardVisible ? `${window.innerHeight - (viewportHeight || window.innerHeight) + inputContainerHeight}px` : 'calc(68px + 140px)',
           paddingTop: keyboardVisible ? '0.5rem' : '0.75rem',
-          paddingBottom: '0.5rem',
+          paddingBottom: keyboardVisible ? '0' : '0.5rem',
           willChange: 'transform',
           WebkitOverflowScrolling: 'touch',
           WebkitBackfaceVisibility: 'hidden',

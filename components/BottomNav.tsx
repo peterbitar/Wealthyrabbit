@@ -41,24 +41,42 @@ export default function BottomNav() {
 
   // Detect keyboard on Ask page
   useEffect(() => {
-    if (pathname !== '/ask' || typeof window === 'undefined' || !window.visualViewport) {
+    if (pathname !== '/ask' || typeof window === 'undefined') {
       setKeyboardVisible(false);
       return;
     }
 
     const updateViewport = () => {
-      const viewport = window.visualViewport;
-      if (viewport) {
-        const keyboardOpen = viewport.height < window.innerHeight - 150;
+      if (window.visualViewport) {
+        const viewport = window.visualViewport;
+        const keyboardOpen = viewport.height < window.innerHeight - 100;
+        setKeyboardVisible(keyboardOpen);
+      } else {
+        // Fallback for browsers without visualViewport
+        const keyboardOpen = window.innerHeight < window.screen.height - 100;
         setKeyboardVisible(keyboardOpen);
       }
     };
 
     setTimeout(updateViewport, 100);
-    window.visualViewport.addEventListener('resize', updateViewport);
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', updateViewport);
+      window.visualViewport.addEventListener('scroll', updateViewport);
+    }
+
+    window.addEventListener('resize', updateViewport);
+    window.addEventListener('focusin', updateViewport);
+    window.addEventListener('focusout', () => setTimeout(updateViewport, 100));
 
     return () => {
-      window.visualViewport?.removeEventListener('resize', updateViewport);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', updateViewport);
+        window.visualViewport.removeEventListener('scroll', updateViewport);
+      }
+      window.removeEventListener('resize', updateViewport);
+      window.removeEventListener('focusin', updateViewport);
+      window.removeEventListener('focusout', updateViewport);
     };
   }, [pathname]);
 
