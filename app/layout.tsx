@@ -5,12 +5,7 @@ import BottomNav from "@/components/BottomNav";
 export const metadata: Metadata = {
   title: "WealthyRabbit - Your Calm Market Companion",
   description: "A mindful, intelligent app for investors who want clarity without the noise",
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover",
 };
 
 export default function RootLayout({

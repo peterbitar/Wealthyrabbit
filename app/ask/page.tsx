@@ -55,7 +55,11 @@ export default function Ask() {
   const [voiceNoteMode, setVoiceNoteMode] = useState(false);
   const [lastSeenTimestamp, setLastSeenTimestamp] = useState<number | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [headerHeight, setHeaderHeight] = useState(100);
+  const [inputHeight, setInputHeight] = useState(120);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLDivElement>(null);
 
   // Load in-app notifications and chat history on mount
   useEffect(() => {
@@ -141,6 +145,22 @@ export default function Ask() {
     }
   }, [messages]);
 
+  // Measure header and input heights
+  useEffect(() => {
+    const measureHeights = () => {
+      if (headerRef.current) {
+        setHeaderHeight(headerRef.current.offsetHeight);
+      }
+      if (inputRef.current) {
+        setInputHeight(inputRef.current.offsetHeight + (keyboardVisible ? 0 : 68));
+      }
+    };
+
+    measureHeights();
+    window.addEventListener('resize', measureHeights);
+    return () => window.removeEventListener('resize', measureHeights);
+  }, [keyboardVisible]);
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -207,10 +227,16 @@ export default function Ask() {
     <div className="h-screen overflow-hidden touch-none">
       {/* Header */}
       <motion.div
+        ref={headerRef}
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="fixed top-0 left-0 right-0 z-20 p-4 pt-4 border-b border-rabbit-border/50 bg-rabbit-bg max-w-lg mx-auto"
-        style={{ WebkitBackfaceVisibility: 'hidden', backfaceVisibility: 'hidden' }}
+        className="fixed left-0 right-0 z-20 px-4 pb-3 border-b border-rabbit-border/50 bg-rabbit-bg max-w-lg mx-auto"
+        style={{
+          top: 'env(safe-area-inset-top)',
+          paddingTop: 'max(1rem, env(safe-area-inset-top))',
+          WebkitBackfaceVisibility: 'hidden',
+          backfaceVisibility: 'hidden'
+        }}
       >
         <div className="flex items-center justify-between mb-1">
           <h1 className="text-2xl font-semibold text-gray-100">
@@ -232,8 +258,12 @@ export default function Ask() {
 
       {/* Messages */}
       <div
-        className="absolute top-[100px] bottom-[120px] left-0 right-0 overflow-y-auto px-4 space-y-3 max-w-lg mx-auto touch-auto overscroll-contain"
-        style={{ WebkitOverflowScrolling: 'touch' }}
+        className="absolute left-0 right-0 overflow-y-auto px-4 pt-3 space-y-3 max-w-lg mx-auto touch-auto overscroll-contain"
+        style={{
+          top: `${headerHeight}px`,
+          bottom: `${inputHeight}px`,
+          WebkitOverflowScrolling: 'touch'
+        }}
       >
         <AnimatePresence mode="popLayout">
           {messages.map((message, index) => {
@@ -403,12 +433,14 @@ export default function Ask() {
 
       {/* Input Area */}
       <motion.div
+        ref={inputRef}
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.3, duration: 0.2 }}
-        className="fixed left-0 right-0 z-30 px-4 pt-2 pb-2 border-t border-rabbit-border/50 bg-rabbit-bg max-w-lg mx-auto"
+        className="fixed left-0 right-0 z-30 px-4 pt-2 border-t border-rabbit-border/50 bg-rabbit-bg max-w-lg mx-auto"
         style={{
-          bottom: keyboardVisible ? 0 : 68,
+          bottom: keyboardVisible ? 'env(safe-area-inset-bottom)' : 'max(68px, calc(68px + env(safe-area-inset-bottom)))',
+          paddingBottom: keyboardVisible ? 'max(0.5rem, env(safe-area-inset-bottom))' : '0.5rem',
           WebkitBackfaceVisibility: 'hidden',
           backfaceVisibility: 'hidden',
           WebkitTransform: 'translateZ(0)',
