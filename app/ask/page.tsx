@@ -204,12 +204,12 @@ export default function Ask() {
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="h-screen overflow-hidden">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex-shrink-0 p-4 pt-4 border-b border-rabbit-border/50 bg-rabbit-bg/95 backdrop-blur-sm"
+        className="fixed top-0 left-0 right-0 z-20 p-4 pt-4 border-b border-rabbit-border/50 bg-rabbit-bg backdrop-blur-sm max-w-lg mx-auto"
       >
         <div className="flex items-center justify-between mb-1">
           <h1 className="text-2xl font-semibold text-gray-100">
@@ -230,7 +230,7 @@ export default function Ask() {
       </motion.div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-0 space-y-3">
+      <div className="absolute top-[100px] bottom-[120px] left-0 right-0 overflow-y-auto px-4 space-y-3 max-w-lg mx-auto">
         <AnimatePresence mode="popLayout">
           {messages.map((message, index) => {
             // Check if this is the first new message
@@ -402,8 +402,8 @@ export default function Ask() {
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.3, duration: 0.2 }}
-        className="flex-shrink-0 px-4 pt-2 border-t border-rabbit-border/50 bg-rabbit-bg backdrop-blur-sm"
-        style={{ paddingBottom: keyboardVisible ? '0.5rem' : 'calc(0.5rem + 68px)' }}
+        className="fixed left-0 right-0 z-30 px-4 pt-2 pb-2 border-t border-rabbit-border/50 bg-rabbit-bg backdrop-blur-sm max-w-lg mx-auto"
+        style={{ bottom: keyboardVisible ? 0 : 68 }}
       >
         <div className="flex items-center gap-3 bg-rabbit-card border border-rabbit-border rounded-2xl p-3 focus-within:border-rabbit-lavender-500/50 transition-all">
           {/* Voice Note Toggle */}
