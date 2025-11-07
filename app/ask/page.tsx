@@ -273,9 +273,9 @@ export default function Ask() {
         className="fixed left-0 right-0 overflow-y-auto px-4 space-y-3 max-w-lg mx-auto touch-auto overscroll-contain"
         style={{
           top: keyboardVisible ? '0' : 'calc(env(safe-area-inset-top) + 100px)',
-          bottom: keyboardVisible ? `${window.innerHeight - (viewportHeight || window.innerHeight) + 70}px` : 'calc(68px + 140px)',
+          bottom: keyboardVisible ? `${window.innerHeight - (viewportHeight || window.innerHeight) + 56}px` : 'calc(68px + 140px)',
           paddingTop: keyboardVisible ? '0.5rem' : '0.75rem',
-          paddingBottom: keyboardVisible ? '0.25rem' : '0.5rem',
+          paddingBottom: keyboardVisible ? '0' : '0.5rem',
           willChange: 'transform',
           WebkitOverflowScrolling: 'touch',
           WebkitBackfaceVisibility: 'hidden',
@@ -461,8 +461,8 @@ export default function Ask() {
         }`}
         style={{
           bottom: keyboardVisible ? `${window.innerHeight - (viewportHeight || window.innerHeight)}px` : 68,
-          paddingTop: keyboardVisible ? '0.25rem' : '0.5rem',
-          paddingBottom: keyboardVisible ? '0.25rem' : '0.5rem',
+          paddingTop: keyboardVisible ? '0' : '0.5rem',
+          paddingBottom: keyboardVisible ? '0' : '0.5rem',
           willChange: 'transform',
           WebkitBackfaceVisibility: 'hidden',
           backfaceVisibility: 'hidden',
