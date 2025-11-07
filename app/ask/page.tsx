@@ -152,12 +152,14 @@ export default function Ask() {
       if (viewport) {
         setViewportHeight(viewport.height);
         // Keyboard is visible if viewport height is significantly less than window height
-        const keyboardOpen = viewport.height < window.innerHeight - 100;
+        const keyboardOpen = viewport.height < window.innerHeight - 150;
         setKeyboardVisible(keyboardOpen);
       }
     };
 
-    updateViewport();
+    // Initial update with slight delay to ensure proper measurement
+    setTimeout(updateViewport, 100);
+
     window.visualViewport.addEventListener('resize', updateViewport);
     window.visualViewport.addEventListener('scroll', updateViewport);
 
@@ -270,9 +272,10 @@ export default function Ask() {
       <div
         className="fixed left-0 right-0 overflow-y-auto px-4 space-y-3 max-w-lg mx-auto touch-auto overscroll-contain"
         style={{
-          top: keyboardVisible ? 'env(safe-area-inset-top)' : 'calc(env(safe-area-inset-top) + 100px)',
-          bottom: keyboardVisible ? `${window.innerHeight - (viewportHeight || window.innerHeight) + 70}px` : 'calc(68px + 140px)',
-          paddingTop: keyboardVisible ? 'max(0.5rem, 0px)' : '0.75rem',
+          top: keyboardVisible ? '0' : 'calc(env(safe-area-inset-top) + 100px)',
+          bottom: keyboardVisible ? `${window.innerHeight - (viewportHeight || window.innerHeight) + 80}px` : 'calc(68px + 140px)',
+          paddingTop: keyboardVisible ? '0.5rem' : '0.75rem',
+          paddingBottom: '0.5rem',
           willChange: 'transform',
           WebkitOverflowScrolling: 'touch',
           WebkitBackfaceVisibility: 'hidden',
@@ -453,11 +456,13 @@ export default function Ask() {
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.3, duration: 0.2 }}
-        className="fixed left-0 right-0 z-30 px-4 border-t border-rabbit-border/50 bg-rabbit-bg max-w-lg mx-auto"
+        className={`fixed left-0 right-0 z-30 px-4 bg-rabbit-bg max-w-lg mx-auto ${
+          !keyboardVisible ? 'border-t border-rabbit-border/50' : ''
+        }`}
         style={{
           bottom: keyboardVisible ? `${window.innerHeight - (viewportHeight || window.innerHeight)}px` : 68,
-          paddingTop: '0.5rem',
-          paddingBottom: '0.5rem',
+          paddingTop: keyboardVisible ? '0.75rem' : '0.5rem',
+          paddingBottom: keyboardVisible ? '0.75rem' : '0.5rem',
           willChange: 'transform',
           WebkitBackfaceVisibility: 'hidden',
           backfaceVisibility: 'hidden',
@@ -465,7 +470,9 @@ export default function Ask() {
           transform: 'translateZ(0)'
         }}
       >
-        <div className="flex items-center gap-3 bg-rabbit-card border border-rabbit-border rounded-2xl p-3 focus-within:border-rabbit-lavender-500/50 transition-all">
+        <div className={`flex items-center gap-3 bg-rabbit-card border border-rabbit-border rounded-2xl transition-all ${
+          keyboardVisible ? 'p-4' : 'p-3 focus-within:border-rabbit-lavender-500/50'
+        }`}>
           {/* Voice Note Toggle - Hide when keyboard visible */}
           {!keyboardVisible && (
             <motion.button
@@ -497,7 +504,9 @@ export default function Ask() {
               }
             }}
             placeholder="Ask anything about markets..."
-            className="flex-1 bg-transparent text-base text-gray-200 placeholder-gray-500 outline-none"
+            className={`flex-1 bg-transparent text-gray-200 placeholder-gray-500 outline-none ${
+              keyboardVisible ? 'text-lg' : 'text-base'
+            }`}
             aria-label="Ask a question"
           />
 
